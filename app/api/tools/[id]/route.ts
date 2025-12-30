@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 
-type Params = {
-  params: { id: string };
+type Context = {
+  params: Promise<{ id: string }>;
 };
 
-export async function PUT(request: Request, { params }: Params) {
-  const { id } = params;
+export async function PUT(request: NextRequest, { params }: Context) {
+  const { id } = await params;
 
   if (!ObjectId.isValid(id)) {
     return NextResponse.json({ message: "Id invalido." }, { status: 400 });
@@ -15,7 +15,8 @@ export async function PUT(request: Request, { params }: Params) {
 
   const body = await request.json();
   const label = typeof body?.label === "string" ? body.label.trim() : "";
-  const description = typeof body?.description === "string" ? body.description.trim() : "";
+  const description =
+    typeof body?.description === "string" ? body.description.trim() : "";
   const visibleToUser = Boolean(body?.visibleToUser);
 
   if (!label) {
@@ -48,8 +49,8 @@ export async function PUT(request: Request, { params }: Params) {
   });
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
-  const { id } = params;
+export async function DELETE(_request: NextRequest, { params }: Context) {
+  const { id } = await params;
 
   if (!ObjectId.isValid(id)) {
     return NextResponse.json({ message: "Id invalido." }, { status: 400 });
