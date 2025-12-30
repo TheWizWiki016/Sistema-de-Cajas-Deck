@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/mongodb";
 
-export async function POST(request: Request) {
-  const username = cookies().get("deck_user")?.value;
+export async function POST(request: NextRequest) {
+  const cookieStore = await cookies();
+  const username = cookieStore.get("deck_user")?.value;
+
   if (!username) {
     return NextResponse.json(
       { message: "Usuario no autenticado." },
@@ -35,7 +37,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (fondoValidado && (fondoCantidad === undefined || Number.isNaN(fondoCantidad))) {
+  if (
+    fondoValidado &&
+    (fondoCantidad === undefined || Number.isNaN(fondoCantidad))
+  ) {
     return NextResponse.json(
       { message: "Cantidad de fondo requerida." },
       { status: 400 }
@@ -67,7 +72,9 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const username = cookies().get("deck_user")?.value;
+  const cookieStore = await cookies();
+  const username = cookieStore.get("deck_user")?.value;
+
   if (!username) {
     return NextResponse.json(
       { message: "Usuario no autenticado." },
