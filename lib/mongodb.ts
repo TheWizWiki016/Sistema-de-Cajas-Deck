@@ -1,47 +1,33 @@
-import { MongoClient, type Db } from "mongodb"
+import { MongoClient } from "mongodb";
 
-function getMongoUri(): string {
-  if (!process.env.MONGODB_URI) {
-    throw new Error("Please add your MongoDB URI to .env.local")
-  }
-  return process.env.MONGODB_URI
+const uri = process.env.MONGODB_URI;
+const dbName = process.env.MONGODB_DB;
+
+if (!uri) {
+  throw new Error("MONGODB_URI is not set.");
 }
 
-const options = {}
+if (!dbName) {
+  throw new Error("MONGODB_DB is not set.");
+}
 
-let client: MongoClient
-let clientPromise: Promise<MongoClient>
+let client: MongoClient;
 
 declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined
+  // eslint-disable-next-line no-var
+  var __mongoClient: MongoClient | undefined;
 }
 
-function initializeClient(): Promise<MongoClient> {
-  const uri = getMongoUri()
-
-  if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-      client = new MongoClient(uri, options)
-      global._mongoClientPromise = client.connect()
-    }
-    return global._mongoClientPromise
-  } else {
-    client = new MongoClient(uri, options)
-    return client.connect()
+if (process.env.NODE_ENV === "development") {
+  if (!global.__mongoClient) {
+    global.__mongoClient = new MongoClient(uri);
   }
+  client = global.__mongoClient;
+} else {
+  client = new MongoClient(uri);
 }
 
-export async function getDb(): Promise<Db> {
-  if (!clientPromise) {
-    clientPromise = initializeClient()
-  }
-  const client = await clientPromise
-  return client.db("button_dashboard")
-}
-
-export default async function getClientPromise(): Promise<MongoClient> {
-  if (!clientPromise) {
-    clientPromise = initializeClient()
-  }
-  return clientPromise
+export async function getDb() {
+  await client.connect();
+  return client.db(dbName);
 }
