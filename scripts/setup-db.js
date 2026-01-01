@@ -21,6 +21,12 @@ const DEFAULT_TOOLS = [
     description: "Cortes de caja y reportes.",
     visibleToUser: true,
   },
+  {
+    key: "articulos",
+    label: "Articulos",
+    description: "Gestion de articulos de la tienda.",
+    visibleToUser: true,
+  },
 ];
 
 function loadEnvFile(filePath) {
@@ -78,9 +84,23 @@ async function run() {
     await db.createCollection("cash_cuts");
   }
 
+  const itemsExisting = await db.listCollections({ name: "store_items" }).toArray();
+  if (itemsExisting.length === 0) {
+    await db.createCollection("store_items");
+  }
+
   await db.collection("users").createIndex({ username: 1 }, { unique: true });
   await db.collection("tools").createIndex({ key: 1 }, { unique: true });
   await db.collection("cash_cuts").createIndex({ createdAt: -1 });
+  await db.collection("store_items").createIndex({ createdAt: -1 });
+  await db.collection("store_items").createIndex(
+    { alfanumerico: 1 },
+    { unique: true }
+  );
+  await db.collection("store_items").createIndex(
+    { codigoBarras: 1 },
+    { unique: true, sparse: true }
+  );
 
   const toolsCount = await db.collection("tools").countDocuments();
   if (toolsCount === 0) {

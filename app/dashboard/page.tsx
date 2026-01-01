@@ -22,6 +22,7 @@ const TOOL_ROUTES: Record<string, string> = {
   "imprimir-precios": "/tools/imprimir-precios",
   conteos: "/tools/conteos",
   cortes: "/tools/cortes",
+  articulos: "/tools/articulos",
 };
 
 function getCookie(name: string) {
@@ -410,34 +411,56 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-black/10 bg-white/85 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.6)]">
-              <h2 className="text-xl font-semibold">Vista usuario</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Estos son los botones que vera un usuario regular.
-              </p>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {visibleTools.length === 0 ? (
-                  <p className="text-sm text-zinc-600">No hay botones visibles.</p>
-                ) : null}
-                {visibleTools.map((tool) => {
-                  const href = TOOL_ROUTES[tool.key];
-                  const Component = href ? "a" : "button";
-                  return (
-                    <Component
-                      key={tool._id}
-                      className="flex flex-col items-start gap-2 rounded-2xl border border-black/10 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-1"
-                      type={href ? undefined : "button"}
-                      href={href}
-                    >
-                      <span className="text-sm font-semibold text-zinc-900">
-                        {tool.label}
-                      </span>
-                      <span className="text-xs text-zinc-600">
-                        {tool.description || "Sin descripcion"}
-                      </span>
-                    </Component>
-                  );
-                })}
+            <div className="space-y-8">
+              <div className="rounded-3xl border border-black/10 bg-white/85 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.6)]">
+                <h2 className="text-xl font-semibold">Accesos admin</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Accesos directos a gestores internos.
+                </p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <a
+                    className="flex flex-col items-start gap-2 rounded-2xl border border-black/10 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-1"
+                    href="/tools/articulos"
+                  >
+                    <span className="text-sm font-semibold text-zinc-900">
+                      Gestion de articulos
+                    </span>
+                    <span className="text-xs text-zinc-600">
+                      Alta, edicion y carga masiva.
+                    </span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-black/10 bg-white/85 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.6)]">
+                <h2 className="text-xl font-semibold">Vista usuario</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Estos son los botones que vera un usuario regular.
+                </p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {visibleTools.length === 0 ? (
+                    <p className="text-sm text-zinc-600">No hay botones visibles.</p>
+                  ) : null}
+                  {visibleTools.map((tool) => {
+                    const href = TOOL_ROUTES[tool.key];
+                    const Component = href ? "a" : "button";
+                    return (
+                      <Component
+                        key={tool._id}
+                        className="flex flex-col items-start gap-2 rounded-2xl border border-black/10 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-1"
+                        type={href ? undefined : "button"}
+                        href={href}
+                      >
+                        <span className="text-sm font-semibold text-zinc-900">
+                          {tool.label}
+                        </span>
+                        <span className="text-xs text-zinc-600">
+                          {tool.description || "Sin descripcion"}
+                        </span>
+                      </Component>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </section>
