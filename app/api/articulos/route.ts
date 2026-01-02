@@ -26,7 +26,7 @@ type NormalizedItem = {
   familias: string[];
   alfanumerico: string;
   codigoBarras?: string;
-  precio: number | null;
+  precio: string | null;
   nombreHash?: string;
   alfanumericoHash: string;
   codigoBarrasHash?: string;
@@ -34,7 +34,11 @@ type NormalizedItem = {
   updatedAt: Date;
 };
 
-function normalizeItem(input: any, allowMissingPrice: boolean) {
+type NormalizeResult =
+  | { ok: true; item: NormalizedItem }
+  | { ok: false; message: string };
+
+function normalizeItem(input: any, allowMissingPrice: boolean): NormalizeResult {
   const nombre =
     typeof input?.nombre === "string" ? input.nombre.trim() : "";
   const alfanumerico =

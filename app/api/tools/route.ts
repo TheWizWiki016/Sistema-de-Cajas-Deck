@@ -3,6 +3,10 @@ import { cookies } from "next/headers";
 import { getDb } from "@/lib/mongodb";
 import { decryptString, encryptString, hashForSearch } from "@/lib/crypto";
 
+type AuthResult =
+  | { ok: true; username: string }
+  | { ok: false; response: NextResponse };
+
 function slugify(input: string) {
   const cleaned = input
     .toLowerCase()
@@ -13,7 +17,7 @@ function slugify(input: string) {
   return cleaned || "tool";
 }
 
-async function requireAuth() {
+async function requireAuth(): Promise<AuthResult> {
   const cookieStore = await cookies();
   const username = cookieStore.get("deck_user")?.value;
   if (!username) {
@@ -28,7 +32,7 @@ async function requireAuth() {
   return { ok: true, username };
 }
 
-async function requireAdmin() {
+async function requireAdmin(): Promise<AuthResult> {
   const auth = await requireAuth();
   if (!auth.ok) {
     return auth;
@@ -36,7 +40,7 @@ async function requireAdmin() {
 
   const db = await getDb();
   const user = await db.collection("users").findOne(
-    { usernameHash: hashForSearch(auth.username!) },
+    { usernameHash: hashForSearch(auth.username) },
     { projection: { role: 1 } }
   );
   const role = user?.role ? decryptString(user.role) : "";
@@ -54,7 +58,7 @@ async function requireAdmin() {
 export async function GET(request: Request) {
   const auth = await requireAuth();
   if (!auth.ok) {
-    return auth.response!;
+    return auth.response;
   }
 
   const db = await getDb();
@@ -81,7 +85,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const admin = await requireAdmin();
   if (!admin.ok) {
-    return admin.response!;
+    return admin.response;
   }
 
   const body = await request.json();
