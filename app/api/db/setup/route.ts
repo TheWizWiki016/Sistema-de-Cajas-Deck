@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
+import { encryptString, hashForSearch } from "@/lib/crypto";
 
 const DEFAULT_TOOLS = [
   {
@@ -53,16 +54,18 @@ export async function POST() {
     await db.createCollection("store_items");
   }
 
-  await db.collection("users").createIndex({ username: 1 }, { unique: true });
-  await db.collection("tools").createIndex({ key: 1 }, { unique: true });
+  await db.collection("users").createIndex({ usernameHash: 1 }, { unique: true });
+  await db.collection("users").createIndex({ roleHash: 1 });
+  await db.collection("tools").createIndex({ keyHash: 1 }, { unique: true });
   await db.collection("cash_cuts").createIndex({ createdAt: -1 });
+  await db.collection("cash_cuts").createIndex({ usernameHash: 1 });
   await db.collection("store_items").createIndex({ createdAt: -1 });
   await db.collection("store_items").createIndex(
-    { alfanumerico: 1 },
+    { alfanumericoHash: 1 },
     { unique: true }
   );
   await db.collection("store_items").createIndex(
-    { codigoBarras: 1 },
+    { codigoBarrasHash: 1 },
     { unique: true, sparse: true }
   );
 
@@ -70,7 +73,11 @@ export async function POST() {
   if (toolsCount === 0) {
     await db.collection("tools").insertMany(
       DEFAULT_TOOLS.map((tool) => ({
-        ...tool,
+        key: encryptString(tool.key),
+        keyHash: hashForSearch(tool.key),
+        label: encryptString(tool.label),
+        description: encryptString(tool.description ?? ""),
+        visibleToUser: tool.visibleToUser,
         createdAt: new Date(),
       }))
     );

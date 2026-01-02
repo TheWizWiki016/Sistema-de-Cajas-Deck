@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/mongodb";
+import {
+  decryptNumber,
+  decryptString,
+  decryptStringArray,
+  encryptNumber,
+  encryptString,
+  encryptStringArray,
+  hashForSearch,
+} from "@/lib/crypto";
 
 const COLLECTION_NAME = "store_items";
 
@@ -21,7 +30,7 @@ type Context = {
   params: Promise<{ id: string }>;
 };
 
-export async function PUT(request: NextRequest, { params }: Context) {
+async function requireAdmin() {
   const cookieStore = await cookies();
   const username = cookieStore.get("deck_user")?.value;
 
@@ -32,14 +41,33 @@ export async function PUT(request: NextRequest, { params }: Context) {
     );
   }
 
+  const db = await getDb();
+  const user = await db.collection("users").findOne(
+    { usernameHash: hashForSearch(username) },
+    { projection: { role: 1 } }
+  );
+  const role = user?.role ? decryptString(user.role) : "";
+
+  if (role !== "admin") {
+    return NextResponse.json({ message: "No autorizado." }, { status: 403 });
+  }
+
+  return null;
+}
+
+export async function PUT(request: NextRequest, { params }: Context) {
+  const adminResponse = await requireAdmin();
+  if (adminResponse) {
+    return adminResponse;
+  }
+
   const { id } = await params;
   if (!ObjectId.isValid(id)) {
     return NextResponse.json({ message: "Id invalido." }, { status: 400 });
   }
 
   const body = await request.json();
-  const nombre =
-    typeof body?.nombre === "string" ? body.nombre.trim() : "";
+  const nombre = typeof body?.nombre === "string" ? body.nombre.trim() : "";
   const alfanumerico =
     typeof body?.alfanumerico === "string" ? body.alfanumerico.trim() : "";
   const codigoBarrasRaw =
@@ -69,18 +97,26 @@ export async function PUT(request: NextRequest, { params }: Context) {
     precio = parsed;
   }
 
-  const update = {
-    nombre,
-    familias,
-    alfanumerico,
-    precio,
+  const familias = deriveFamilies(alfanumerico);
+  const update: Record<string, any> = {
+    nombre: encryptString(nombre),
+    nombreHash: nombre ? hashForSearch(nombre) : undefined,
+    familias: encryptStringArray(familias),
+    alfanumerico: encryptString(alfanumerico),
+    alfanumericoHash: hashForSearch(alfanumerico),
+    precio: precio === null ? null : encryptNumber(precio),
     updatedAt: new Date(),
   };
+  if (!nombre) {
+    delete update.nombreHash;
+  }
+
   const updateDoc: Record<string, any> = { $set: update };
   if (codigoBarrasRaw) {
-    updateDoc.$set.codigoBarras = codigoBarrasRaw;
+    updateDoc.$set.codigoBarras = encryptString(codigoBarrasRaw);
+    updateDoc.$set.codigoBarrasHash = hashForSearch(codigoBarrasRaw);
   } else {
-    updateDoc.$unset = { codigoBarras: "" };
+    updateDoc.$unset = { codigoBarras: "", codigoBarrasHash: "" };
   }
 
   try {
@@ -100,8 +136,12 @@ export async function PUT(request: NextRequest, { params }: Context) {
 
     return NextResponse.json({
       articulo: {
-        ...result.value,
         _id: result.value._id.toString(),
+        nombre: decryptString(result.value.nombre),
+        familias: decryptStringArray(result.value.familias),
+        alfanumerico: decryptString(result.value.alfanumerico),
+        codigoBarras: decryptString(result.value.codigoBarras),
+        precio: decryptNumber(result.value.precio),
       },
     });
   } catch (error) {
@@ -109,7 +149,10 @@ export async function PUT(request: NextRequest, { params }: Context) {
       const key = (error as any).keyPattern
         ? Object.keys((error as any).keyPattern)[0]
         : "codigo";
-      const field = key === "codigoBarras" ? "codigo de barras" : "alfanumerico";
+      const field =
+        key === "codigoBarrasHash" || key === "codigoBarras"
+          ? "codigo de barras"
+          : "alfanumerico";
       return NextResponse.json(
         { message: `El ${field} ya existe.` },
         { status: 409 }
@@ -123,14 +166,9 @@ export async function PUT(request: NextRequest, { params }: Context) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: Context) {
-  const cookieStore = await cookies();
-  const username = cookieStore.get("deck_user")?.value;
-
-  if (!username) {
-    return NextResponse.json(
-      { message: "Usuario no autenticado." },
-      { status: 401 }
-    );
+  const adminResponse = await requireAdmin();
+  if (adminResponse) {
+    return adminResponse;
   }
 
   const { id } = await params;
@@ -152,4 +190,3 @@ export async function DELETE(_request: NextRequest, { params }: Context) {
 
   return NextResponse.json({ ok: true });
 }
-  const familias = deriveFamilies(alfanumerico);

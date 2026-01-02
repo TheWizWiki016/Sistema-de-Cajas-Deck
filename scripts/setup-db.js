@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { MongoClient } = require("mongodb");
+const crypto = require("crypto");
 
 const DEFAULT_TOOLS = [
   {
@@ -28,6 +29,52 @@ const DEFAULT_TOOLS = [
     visibleToUser: true,
   },
 ];
+
+const RAW_KEY = process.env.DATA_ENCRYPTION_KEY;
+
+function loadKey() {
+  if (!RAW_KEY) {
+    throw new Error("DATA_ENCRYPTION_KEY is not set.");
+  }
+  const isHex = /^[0-9a-fA-F]+$/.test(RAW_KEY) && RAW_KEY.length === 64;
+  const key = Buffer.from(RAW_KEY, isHex ? "hex" : "base64");
+  if (key.length !== 32) {
+    throw new Error("DATA_ENCRYPTION_KEY must be 32 bytes (base64 or hex).");
+  }
+  return key;
+}
+
+const KEY = loadKey();
+const IV_KEY = crypto.createHmac("sha256", KEY).update("iv").digest();
+const HASH_KEY = crypto.createHmac("sha256", KEY).update("hash").digest();
+
+function normalizeSearchValue(value) {
+  return value.trim().toLowerCase();
+}
+
+function hashForSearch(value) {
+  return crypto
+    .createHmac("sha256", HASH_KEY)
+    .update(normalizeSearchValue(value))
+    .digest("hex");
+}
+
+function encryptString(value) {
+  if (!value) {
+    return "";
+  }
+  const iv = crypto
+    .createHmac("sha256", IV_KEY)
+    .update(value)
+    .digest()
+    .subarray(0, 12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", KEY, iv);
+  const ciphertext = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1:${iv.toString("base64")}:${ciphertext.toString(
+    "base64"
+  )}:${tag.toString("base64")}`;
+}
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -89,16 +136,18 @@ async function run() {
     await db.createCollection("store_items");
   }
 
-  await db.collection("users").createIndex({ username: 1 }, { unique: true });
-  await db.collection("tools").createIndex({ key: 1 }, { unique: true });
+  await db.collection("users").createIndex({ usernameHash: 1 }, { unique: true });
+  await db.collection("users").createIndex({ roleHash: 1 });
+  await db.collection("tools").createIndex({ keyHash: 1 }, { unique: true });
   await db.collection("cash_cuts").createIndex({ createdAt: -1 });
+  await db.collection("cash_cuts").createIndex({ usernameHash: 1 });
   await db.collection("store_items").createIndex({ createdAt: -1 });
   await db.collection("store_items").createIndex(
-    { alfanumerico: 1 },
+    { alfanumericoHash: 1 },
     { unique: true }
   );
   await db.collection("store_items").createIndex(
-    { codigoBarras: 1 },
+    { codigoBarrasHash: 1 },
     { unique: true, sparse: true }
   );
 
@@ -106,7 +155,11 @@ async function run() {
   if (toolsCount === 0) {
     await db.collection("tools").insertMany(
       DEFAULT_TOOLS.map((tool) => ({
-        ...tool,
+        key: encryptString(tool.key),
+        keyHash: hashForSearch(tool.key),
+        label: encryptString(tool.label),
+        description: encryptString(tool.description || ""),
+        visibleToUser: tool.visibleToUser,
         createdAt: new Date(),
       }))
     );

@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/mongodb";
+import {
+  decryptNumber,
+  decryptString,
+  decryptStringArray,
+  encryptNumber,
+  encryptString,
+  encryptStringArray,
+  hashForSearch,
+} from "@/lib/crypto";
 
 const COLLECTION_NAME = "store_items";
 
@@ -18,6 +27,9 @@ type NormalizedItem = {
   alfanumerico: string;
   codigoBarras?: string;
   precio: number | null;
+  nombreHash?: string;
+  alfanumericoHash: string;
+  codigoBarrasHash?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -55,17 +67,28 @@ function normalizeItem(input: any, allowMissingPrice: boolean) {
   const now = new Date();
   const familias = deriveFamilies(alfanumerico);
 
+  const item: NormalizedItem = {
+    nombre: encryptString(nombre),
+    familias: encryptStringArray(familias),
+    alfanumerico: encryptString(alfanumerico),
+    precio: precio === null ? null : encryptNumber(precio),
+    alfanumericoHash: hashForSearch(alfanumerico),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (codigoBarrasRaw) {
+    item.codigoBarras = encryptString(codigoBarrasRaw);
+    item.codigoBarrasHash = hashForSearch(codigoBarrasRaw);
+  }
+
+  if (nombre) {
+    item.nombreHash = hashForSearch(nombre);
+  }
+
   return {
     ok: true,
-    item: {
-      nombre,
-      familias,
-      alfanumerico,
-      codigoBarras: codigoBarrasRaw || undefined,
-      precio,
-      createdAt: now,
-      updatedAt: now,
-    } as NormalizedItem,
+    item,
   };
 }
 
@@ -73,7 +96,7 @@ function isDuplicateError(error: unknown) {
   return typeof error === "object" && error !== null && (error as any).code === 11000;
 }
 
-export async function GET() {
+async function requireAdmin() {
   const cookieStore = await cookies();
   const username = cookieStore.get("deck_user")?.value;
 
@@ -85,6 +108,26 @@ export async function GET() {
   }
 
   const db = await getDb();
+  const user = await db.collection("users").findOne(
+    { usernameHash: hashForSearch(username) },
+    { projection: { role: 1 } }
+  );
+  const role = user?.role ? decryptString(user.role) : "";
+
+  if (role !== "admin") {
+    return NextResponse.json({ message: "No autorizado." }, { status: 403 });
+  }
+
+  return null;
+}
+
+export async function GET() {
+  const adminResponse = await requireAdmin();
+  if (adminResponse) {
+    return adminResponse;
+  }
+
+  const db = await getDb();
   const articulos = await db
     .collection(COLLECTION_NAME)
     .find({})
@@ -92,22 +135,22 @@ export async function GET() {
     .toArray();
 
   const serialized = articulos.map((articulo) => ({
-    ...articulo,
     _id: articulo._id.toString(),
+    nombre: decryptString(articulo.nombre),
+    familias: decryptStringArray(articulo.familias),
+    alfanumerico: decryptString(articulo.alfanumerico),
+    codigoBarras: decryptString(articulo.codigoBarras),
+    precio: decryptNumber(articulo.precio),
+    createdAt: articulo.createdAt,
   }));
 
   return NextResponse.json({ articulos: serialized });
 }
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const username = cookieStore.get("deck_user")?.value;
-
-  if (!username) {
-    return NextResponse.json(
-      { message: "Usuario no autenticado." },
-      { status: 401 }
-    );
+  const adminResponse = await requireAdmin();
+  if (adminResponse) {
+    return adminResponse;
   }
 
   const body = await request.json();
@@ -151,7 +194,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       articulo: {
-        ...normalized.item,
+        nombre: decryptString(normalized.item.nombre),
+        familias: decryptStringArray(normalized.item.familias),
+        alfanumerico: decryptString(normalized.item.alfanumerico),
+        codigoBarras: normalized.item.codigoBarras
+          ? decryptString(normalized.item.codigoBarras)
+          : "",
+        precio: decryptNumber(normalized.item.precio),
         _id: result.insertedId.toString(),
       },
     });
@@ -160,7 +209,10 @@ export async function POST(request: NextRequest) {
       const key = (error as any).keyPattern
         ? Object.keys((error as any).keyPattern)[0]
         : "codigo";
-      const field = key === "codigoBarras" ? "codigo de barras" : "alfanumerico";
+      const field =
+        key === "codigoBarrasHash" || key === "codigoBarras"
+          ? "codigo de barras"
+          : "alfanumerico";
       return NextResponse.json(
         { message: `El ${field} ya existe.` },
         { status: 409 }

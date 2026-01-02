@@ -51,6 +51,16 @@ export default function CortesPage() {
     loadHistory();
   }, []);
 
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("es-MX", {
+        style: "currency",
+        currency: "MXN",
+        minimumFractionDigits: 2,
+      }),
+    []
+  );
+
   const diferencia = useMemo(() => {
     const teorico = Number(corteTeorico);
     const real = Number(corteReal);
@@ -69,13 +79,19 @@ export default function CortesPage() {
     return real - dep;
   }, [corteReal, depositado]);
 
-  const formatSigned = (value: number) => {
+  const formatCurrency = (value: number) => currencyFormatter.format(value);
+
+  const formatSignedCurrency = (value: number) => {
     const sign = value > 0 ? "+" : "";
-    return `${sign}${value.toFixed(2)}`;
+    return `${sign}${formatCurrency(value)}`;
   };
 
   const valueTone = (value: number) =>
-    value < 0 ? "text-red-600" : value > 0 ? "text-emerald-600" : "text-zinc-900";
+    value < 0
+      ? "text-red-400"
+      : value > 0
+      ? "text-emerald-400"
+      : "text-zinc-100";
 
   const addPendiente = () => {
     const text = nuevoPendiente.trim();
@@ -164,24 +180,24 @@ export default function CortesPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f6efe6] text-zinc-900">
-      <div className="pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#ffb27a] opacity-30 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#7bb4d9] opacity-30 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.65),_transparent_55%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0d] text-zinc-100">
+      <div className="pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#7c1127] opacity-35 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#0f3d36] opacity-35 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]" />
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-12">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
               Herramientas
             </p>
             <h1 className="text-3xl font-semibold">Corte de caja</h1>
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-zinc-400">
               Registra corte teorico, real y pendientes del turno.
             </p>
           </div>
           <a
-            className="rounded-full border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold text-zinc-900"
+            className="rounded-full border border-white/10 bg-[#141419]/80 px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
             href="/dashboard"
           >
             Volver al dashboard
@@ -189,16 +205,16 @@ export default function CortesPage() {
         </header>
 
         <form
-          className="mt-10 space-y-8 rounded-3xl border border-black/10 bg-white/85 p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.6)]"
+          className="mt-10 space-y-8 rounded-3xl border border-white/10 bg-[#141419]/90 p-8 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.55)]"
           onSubmit={handleSubmit}
         >
           <div className="grid gap-6 md:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-sm font-medium text-zinc-300">
                 Corte teorico
               </span>
               <input
-                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-base outline-none focus:border-zinc-900"
+                className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 outline-none focus:border-[#7c1127]"
                 type="number"
                 step="0.01"
                 value={corteTeorico}
@@ -208,11 +224,11 @@ export default function CortesPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-sm font-medium text-zinc-300">
                 Corte real
               </span>
               <input
-                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-base outline-none focus:border-zinc-900"
+                className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 outline-none focus:border-[#7c1127]"
                 type="number"
                 step="0.01"
                 value={corteReal}
@@ -221,11 +237,11 @@ export default function CortesPage() {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-sm font-medium text-zinc-300">
                 Depositado
               </span>
               <input
-                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-base outline-none focus:border-zinc-900"
+                className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 outline-none focus:border-[#7c1127]"
                 type="number"
                 step="0.01"
                 value={depositado}
@@ -236,37 +252,37 @@ export default function CortesPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            <div className="rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                 Diferencia
               </p>
               <p
                 className={`mt-2 text-2xl font-semibold ${
-                  diferencia === null ? "text-zinc-900" : valueTone(diferencia)
+                  diferencia === null ? "text-zinc-100" : valueTone(diferencia)
                 }`}
               >
-                {diferencia === null ? "--" : formatSigned(diferencia)}
+                {diferencia === null ? "--" : formatSignedCurrency(diferencia)}
               </p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            <div className="rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                 Pico
               </p>
               <p
                 className={`mt-2 text-2xl font-semibold ${
-                  pico === null ? "text-zinc-900" : valueTone(pico)
+                  pico === null ? "text-zinc-100" : valueTone(pico)
                 }`}
               >
-                {pico === null ? "--" : formatSigned(pico)}
+                {pico === null ? "--" : formatSignedCurrency(pico)}
               </p>
             </div>
           </div>
 
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
               Fondo validado
             </p>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-600">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-400">
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
@@ -288,7 +304,7 @@ export default function CortesPage() {
             </div>
             {fondoValidado === "si" ? (
               <input
-                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-base outline-none focus:border-zinc-900"
+                className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 outline-none focus:border-[#7c1127]"
                 type="number"
                 step="0.01"
                 value={fondoCantidad}
@@ -300,23 +316,23 @@ export default function CortesPage() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                 Pendientes
               </p>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-zinc-400">
                 {pendientes.filter((task) => task.done).length}/
                 {pendientes.length} completados
               </span>
             </div>
             <div className="flex flex-wrap gap-3">
               <input
-                className="flex-1 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-900"
+                className="flex-1 rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                 placeholder="Agregar pendiente"
                 value={nuevoPendiente}
                 onChange={(event) => setNuevoPendiente(event.target.value)}
               />
               <button
-                className="rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white"
+                className="rounded-2xl border border-transparent bg-[#0f3d36] px-4 py-3 text-sm font-semibold text-white hover:border-[#1a6b5f] hover:bg-[#0b2a24]"
                 type="button"
                 onClick={addPendiente}
               >
@@ -326,16 +342,16 @@ export default function CortesPage() {
 
             <div className="space-y-2">
               {pendientes.length === 0 ? (
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-zinc-400">
                   No hay pendientes registrados.
                 </p>
               ) : null}
               {pendientes.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center justify-between rounded-2xl border border-black/10 bg-white/70 px-4 py-3"
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3"
                 >
-                  <label className="flex items-center gap-3 text-sm text-zinc-700">
+                  <label className="flex items-center gap-3 text-sm text-zinc-300">
                     <input
                       type="checkbox"
                       checked={task.done}
@@ -346,7 +362,7 @@ export default function CortesPage() {
                     </span>
                   </label>
                   <button
-                    className="text-xs font-semibold text-red-600"
+                    className="text-xs font-semibold text-red-400"
                     type="button"
                     onClick={() => removePendiente(task.id)}
                   >
@@ -358,13 +374,13 @@ export default function CortesPage() {
           </div>
 
           {message ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white/70 px-4 py-3 text-sm text-zinc-700">
+            <div className="rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-300">
               {message}
             </div>
           ) : null}
 
           <button
-            className="w-full rounded-2xl bg-zinc-900 px-4 py-3 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-2xl bg-[#7c1127] px-4 py-3 text-base font-semibold text-white shadow-[0_12px_24px_-16px_rgba(124,17,39,0.9)] transition hover:-translate-y-[1px] hover:bg-[#5c0b1c] disabled:cursor-not-allowed disabled:opacity-70"
             type="submit"
             disabled={saving}
           >
@@ -372,16 +388,16 @@ export default function CortesPage() {
           </button>
         </form>
 
-        <section className="mt-10 rounded-3xl border border-black/10 bg-white/85 p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.6)]">
+        <section className="mt-10 rounded-3xl border border-white/10 bg-[#141419]/90 p-8 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-semibold">Historico de cortes</h2>
-              <p className="text-sm text-zinc-600">
+              <p className="text-sm text-zinc-400">
                 Ultimos registros guardados en la base de datos.
               </p>
             </div>
             <button
-              className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-zinc-900"
+              className="rounded-full border border-white/10 bg-[#0f0f14] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#0f3d36] hover:text-white"
               type="button"
               onClick={loadHistory}
             >
@@ -391,44 +407,44 @@ export default function CortesPage() {
 
           <div className="mt-6 space-y-4">
             {loadingHistory ? (
-              <p className="text-sm text-zinc-600">Cargando historico...</p>
+              <p className="text-sm text-zinc-400">Cargando historico...</p>
             ) : null}
             {!loadingHistory && history.length === 0 ? (
-              <p className="text-sm text-zinc-600">
+              <p className="text-sm text-zinc-400">
                 Aun no hay cortes registrados.
               </p>
             ) : null}
             {history.map((corte) => (
               <div
                 key={corte._id}
-                className="rounded-2xl border border-black/10 bg-white/70 p-4"
+                className="rounded-2xl border border-white/10 bg-[#0f0f14] p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-zinc-900">
+                    <p className="text-sm font-semibold text-zinc-100">
                       {new Date(corte.createdAt).toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-600">
+                    <p className="text-xs text-zinc-400">
                       Fondo validado: {corte.fondoValidado ? "Si" : "No"}
                       {corte.fondoValidado && corte.fondoCantidad !== undefined
-                        ? ` (${corte.fondoCantidad.toFixed(2)})`
+                        ? ` (${formatCurrency(corte.fondoCantidad)})`
                         : ""}
                     </p>
                   </div>
                   <span
-                    className={`rounded-full bg-white px-3 py-1 text-xs ${
+                    className={`rounded-full bg-[#141419] px-3 py-1 text-xs ${
                       valueTone(corte.diferencia)
                     }`}
                   >
-                    Diferencia {formatSigned(corte.diferencia)}
+                    Diferencia {formatSignedCurrency(corte.diferencia)}
                   </span>
                 </div>
-                <div className="mt-4 grid gap-2 text-sm text-zinc-700 sm:grid-cols-3">
-                  <div>Corte teorico: {corte.corteTeorico.toFixed(2)}</div>
-                  <div>Corte real: {corte.corteReal.toFixed(2)}</div>
-                  <div>Depositado: {corte.depositado.toFixed(2)}</div>
+                <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
+                  <div>Corte teorico: {formatCurrency(corte.corteTeorico)}</div>
+                  <div>Corte real: {formatCurrency(corte.corteReal)}</div>
+                  <div>Depositado: {formatCurrency(corte.depositado)}</div>
                   <div className={valueTone(corte.pico)}>
-                    Pico: {formatSigned(corte.pico)}
+                    Pico: {formatSignedCurrency(corte.pico)}
                   </div>
                   <div>
                     Pendientes:{" "}
@@ -439,6 +455,32 @@ export default function CortesPage() {
                       : "0"}
                   </div>
                 </div>
+                {corte.pendientes?.length ? (
+                  <div className="mt-4 space-y-2 text-sm text-zinc-300">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                      Pendientes guardados
+                    </p>
+                    <div className="space-y-2">
+                      {corte.pendientes.map((task, index) => (
+                        <div
+                          key={`${corte._id}-${index}`}
+                          className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#141419] px-4 py-2"
+                        >
+                          <span
+                            className={
+                              task.done ? "text-emerald-400 line-through" : ""
+                            }
+                          >
+                            {task.text}
+                          </span>
+                          <span className="text-xs text-zinc-400">
+                            {task.done ? "Listo" : "Pendiente"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

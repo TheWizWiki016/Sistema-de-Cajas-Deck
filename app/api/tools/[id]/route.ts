@@ -1,12 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import { cookies } from "next/headers";
 import { getDb } from "@/lib/mongodb";
+import { decryptString, encryptString, hashForSearch } from "@/lib/crypto";
 
 type Context = {
   params: Promise<{ id: string }>;
 };
 
+async function requireAdmin() {
+  const cookieStore = await cookies();
+  const username = cookieStore.get("deck_user")?.value;
+  if (!username) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { message: "Usuario no autenticado." },
+        { status: 401 }
+      ),
+    };
+  }
+
+  const db = await getDb();
+  const user = await db.collection("users").findOne(
+    { usernameHash: hashForSearch(username) },
+    { projection: { role: 1 } }
+  );
+  const role = user?.role ? decryptString(user.role) : "";
+  if (role !== "admin") {
+    return {
+      ok: false,
+      response: NextResponse.json({ message: "No autorizado." }, { status: 403 }),
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function PUT(request: NextRequest, { params }: Context) {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response!;
+  }
+
   const { id } = await params;
 
   if (!ObjectId.isValid(id)) {
@@ -25,8 +61,8 @@ export async function PUT(request: NextRequest, { params }: Context) {
 
   const db = await getDb();
   const update = {
-    label,
-    description,
+    label: encryptString(label),
+    description: encryptString(description),
     visibleToUser,
     updatedAt: new Date(),
   };
@@ -43,13 +79,21 @@ export async function PUT(request: NextRequest, { params }: Context) {
 
   return NextResponse.json({
     tool: {
-      ...result.value,
       _id: result.value._id.toString(),
+      key: decryptString(result.value.key),
+      label: decryptString(result.value.label),
+      description: decryptString(result.value.description ?? ""),
+      visibleToUser: result.value.visibleToUser,
     },
   });
 }
 
 export async function DELETE(_request: NextRequest, { params }: Context) {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response!;
+  }
+
   const { id } = await params;
 
   if (!ObjectId.isValid(id)) {

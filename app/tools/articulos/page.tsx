@@ -235,24 +235,24 @@ export default function ArticulosPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f6efe6] text-zinc-900">
-      <div className="pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#ffb27a] opacity-30 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#7bb4d9] opacity-30 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.65),_transparent_55%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0d] text-zinc-100">
+      <div className="pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#7c1127] opacity-35 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#0f3d36] opacity-35 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]" />
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-12">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
               Inventario
             </p>
             <h1 className="text-3xl font-semibold">Gestion de articulos</h1>
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-zinc-400">
               {totalArticulos} articulos registrados.
             </p>
           </div>
           <a
-            className="rounded-full border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold text-zinc-900"
+            className="rounded-full border border-white/10 bg-[#141419]/80 px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
             href="/dashboard"
           >
             Volver al dashboard
@@ -260,57 +260,57 @@ export default function ArticulosPage() {
         </header>
 
         {message ? (
-          <div className="mt-6 rounded-2xl border border-zinc-200 bg-white/70 px-4 py-3 text-sm text-zinc-700">
+          <div className="mt-6 rounded-2xl border border-white/10 bg-[#141419]/80 px-4 py-3 text-sm text-zinc-300">
             {message}
           </div>
         ) : null}
 
         <section className="mt-10 grid gap-8 lg:grid-cols-[1.1fr_1fr]">
           <form
-            className="rounded-3xl border border-black/10 bg-white/85 p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.6)]"
+            className="rounded-3xl border border-white/10 bg-[#141419]/90 p-8 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.55)]"
             onSubmit={handleCreate}
           >
             <h2 className="text-xl font-semibold">Nuevo articulo</h2>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-zinc-400">
               Completa los datos para agregar un articulo al catalogo.
             </p>
 
             <div className="mt-6 space-y-4">
               <label className="space-y-2">
-                <span className="text-sm font-medium text-zinc-700">Nombre</span>
+                <span className="text-sm font-medium text-zinc-300">Nombre</span>
                 <input
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-900"
+                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   placeholder="Ej. Marlboro Velvet"
                   value={nombre}
                   onChange={(event) => setNombre(event.target.value)}
                 />
               </label>
               <label className="space-y-2">
-                <span className="text-sm font-medium text-zinc-700">
+                <span className="text-sm font-medium text-zinc-300">
                   Codigo alfanumerico
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-900"
+                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   placeholder="Ej. A-1024"
                   value={alfanumerico}
                   onChange={(event) => setAlfanumerico(event.target.value)}
                 />
               </label>
               <label className="space-y-2">
-                <span className="text-sm font-medium text-zinc-700">
+                <span className="text-sm font-medium text-zinc-300">
                   Codigo de barras
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-900"
+                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   placeholder="Ej. 7501234567890"
                   value={codigoBarras}
                   onChange={(event) => setCodigoBarras(event.target.value)}
                 />
               </label>
               <label className="space-y-2">
-                <span className="text-sm font-medium text-zinc-700">Precio</span>
+                <span className="text-sm font-medium text-zinc-300">Precio</span>
                 <input
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-900"
+                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   type="number"
                   step="0.01"
                   placeholder="0.00"
@@ -321,30 +321,30 @@ export default function ArticulosPage() {
             </div>
 
             <button
-              className="mt-6 w-full rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-6 w-full rounded-2xl bg-[#7c1127] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70 hover:bg-[#5c0b1c]"
               type="submit"
               disabled={saving}
             >
               {saving ? "Guardando..." : "Guardar articulo"}
             </button>
 
-            <div className="mt-6 rounded-2xl border border-dashed border-zinc-200 bg-white/60 p-4">
-              <h3 className="text-sm font-semibold text-zinc-900">
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-[#0f0f14]/70 p-4">
+              <h3 className="text-sm font-semibold text-zinc-100">
                 Carga masiva (JSON)
               </h3>
-              <p className="mt-1 text-xs text-zinc-600">
+              <p className="mt-1 text-xs text-zinc-400">
                 Pega un arreglo JSON con objetos que incluyan nombre,
                 alfanumerico y codigo_barras o codigoBarras. La familia se
                 deriva del alfanumerico.
               </p>
               <textarea
-                className="mt-3 min-h-[140px] w-full rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-zinc-900"
+                className="mt-3 min-h-[140px] w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-3 py-2 text-xs text-zinc-100 outline-none focus:border-[#7c1127]"
                 placeholder='[{"nombre":"Marlboro Velvet","alfanumerico":"TA1010172","codigo_barras":"75068765","precio":12.5}]'
                 value={bulkJson}
                 onChange={(event) => setBulkJson(event.target.value)}
               />
               <button
-                className="mt-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
+                className="mt-3 w-full rounded-2xl border border-white/10 bg-[#141419] px-4 py-2 text-xs font-semibold text-zinc-100 disabled:cursor-not-allowed disabled:opacity-70 hover:border-[#0f3d36]"
                 type="button"
                 onClick={handleBulkAdd}
                 disabled={bulkSaving}
@@ -354,16 +354,16 @@ export default function ArticulosPage() {
             </div>
           </form>
 
-          <div className="rounded-3xl border border-black/10 bg-white/85 p-8 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.6)]">
+          <div className="rounded-3xl border border-white/10 bg-[#141419]/90 p-8 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">Catalogo</h2>
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-zinc-400">
                   Edita, elimina o revisa articulos existentes.
                 </p>
               </div>
               <button
-                className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-zinc-900"
+                className="rounded-full border border-white/10 bg-[#0f0f14] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#0f3d36]"
                 type="button"
                 onClick={loadArticulos}
               >
@@ -373,10 +373,10 @@ export default function ArticulosPage() {
 
             <div className="mt-6 space-y-4">
               {loading ? (
-                <p className="text-sm text-zinc-600">Cargando articulos...</p>
+                <p className="text-sm text-zinc-400">Cargando articulos...</p>
               ) : null}
               {!loading && articulos.length === 0 ? (
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-zinc-400">
                   Aun no hay articulos registrados.
                 </p>
               ) : null}
@@ -384,30 +384,30 @@ export default function ArticulosPage() {
               {articulos.map((articulo) => (
                 <div
                   key={articulo._id}
-                  className="rounded-2xl border border-black/10 bg-white/70 p-4"
+                  className="rounded-2xl border border-white/10 bg-[#0f0f14] p-4"
                 >
                   {editingId === articulo._id ? (
                     <div className="space-y-3">
                       <input
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
                         value={editNombre}
                         onChange={(event) => setEditNombre(event.target.value)}
                         placeholder="Nombre"
                       />
                       <input
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
                         value={editAlfanumerico}
                         onChange={(event) => setEditAlfanumerico(event.target.value)}
                         placeholder="Codigo alfanumerico"
                       />
                       <input
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
                         value={editCodigoBarras}
                         onChange={(event) => setEditCodigoBarras(event.target.value)}
                         placeholder="Codigo de barras"
                       />
                       <input
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
                         type="number"
                         step="0.01"
                         value={editPrecio}
@@ -416,14 +416,14 @@ export default function ArticulosPage() {
                       />
                       <div className="flex flex-wrap gap-2">
                         <button
-                          className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
+                          className="rounded-full bg-[#7c1127] px-4 py-2 text-xs font-semibold text-white hover:bg-[#5c0b1c]"
                           type="button"
                           onClick={saveEdit}
                         >
                           Guardar
                         </button>
                         <button
-                          className="rounded-full border border-black/10 px-4 py-2 text-xs font-semibold"
+                          className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-200"
                           type="button"
                           onClick={cancelEdit}
                         >
@@ -435,10 +435,10 @@ export default function ArticulosPage() {
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                          <p className="text-sm font-semibold text-zinc-900">
+                          <p className="text-sm font-semibold text-zinc-100">
                             {articulo.nombre || articulo.alfanumerico}
                           </p>
-                          <p className="text-xs text-zinc-600">
+                          <p className="text-xs text-zinc-400">
                             {articulo.nombre ? articulo.alfanumerico : null}
                             {articulo.nombre ? " · " : ""}
                             {articulo.codigoBarras
@@ -446,7 +446,7 @@ export default function ArticulosPage() {
                               : "Sin codigo de barras"}
                           </p>
                         </div>
-                        <span className="rounded-full bg-white px-3 py-1 text-xs text-zinc-600">
+                        <span className="rounded-full bg-[#141419] px-3 py-1 text-xs text-zinc-400">
                           {articulo.precio === null
                             ? "Sin precio"
                             : `$${articulo.precio.toFixed(2)}`}
@@ -461,7 +461,7 @@ export default function ArticulosPage() {
                           articulo.familias.map((familia) => (
                             <span
                               key={familia}
-                              className="rounded-full bg-white px-3 py-1 text-xs text-zinc-600"
+                              className="rounded-full bg-[#141419] px-3 py-1 text-xs text-zinc-400"
                             >
                               {familia}
                             </span>
@@ -470,14 +470,14 @@ export default function ArticulosPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <button
-                          className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold"
+                          className="rounded-full border border-white/10 bg-[#141419] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
                           type="button"
                           onClick={() => startEdit(articulo)}
                         >
                           Editar
                         </button>
                         <button
-                          className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-red-600"
+                          className="rounded-full border border-white/10 bg-[#141419] px-3 py-1 text-xs font-semibold text-red-400 hover:border-red-400"
                           type="button"
                           onClick={() => deleteArticulo(articulo)}
                         >
