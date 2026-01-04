@@ -54,6 +54,27 @@ export async function POST() {
     await db.createCollection("store_items");
   }
 
+  const countsExisting = await db
+    .listCollections({ name: "inventory_counts" })
+    .toArray();
+  if (countsExisting.length === 0) {
+    await db.createCollection("inventory_counts");
+  }
+
+  const familiesExisting = await db
+    .listCollections({ name: "families" })
+    .toArray();
+  if (familiesExisting.length === 0) {
+    await db.createCollection("families");
+  }
+
+  const settingsExisting = await db
+    .listCollections({ name: "settings" })
+    .toArray();
+  if (settingsExisting.length === 0) {
+    await db.createCollection("settings");
+  }
+
   await db.collection("users").createIndex({ usernameHash: 1 }, { unique: true });
   await db.collection("users").createIndex({ roleHash: 1 });
   await db.collection("tools").createIndex({ keyHash: 1 }, { unique: true });
@@ -68,6 +89,11 @@ export async function POST() {
     { codigoBarrasHash: 1 },
     { unique: true, sparse: true }
   );
+  await db.collection("families").createIndex({ prefixHash: 1 }, { unique: true });
+  await db.collection("inventory_counts").createIndex({ createdAt: -1 });
+  await db.collection("inventory_counts").createIndex({ usernameHash: 1 });
+  await db.collection("inventory_counts").createIndex({ familyHash: 1 });
+  await db.collection("settings").createIndex({ key: 1 }, { unique: true });
 
   const toolsCount = await db.collection("tools").countDocuments();
   if (toolsCount === 0) {

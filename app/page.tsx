@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const DEFAULT_COOKIE_DAYS = 1;
 
@@ -17,16 +18,14 @@ export default function Home() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [needsPassword, setNeedsPassword] = useState(false);
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setMessage("");
     setLoading(true);
 
     if (!username.trim()) {
-      setMessage("Completa usuario para continuar.");
+      toast.error("Completa usuario para continuar.");
       setLoading(false);
       return;
     }
@@ -34,12 +33,12 @@ export default function Home() {
     let currentPassword = password;
     if (needsPassword) {
       if (!newPassword || newPassword.length < 6) {
-        setMessage("La nueva contrasena debe tener al menos 6 caracteres.");
+        toast.error("La nueva contrasena debe tener al menos 6 caracteres.");
         setLoading(false);
         return;
       }
       if (newPassword !== confirmNewPassword) {
-        setMessage("Las contrasenas no coinciden.");
+        toast.error("Las contrasenas no coinciden.");
         setLoading(false);
         return;
       }
@@ -54,7 +53,7 @@ export default function Home() {
       });
       const setData = (await setRes.json()) as { ok?: boolean; message?: string };
       if (!setRes.ok || !setData.ok) {
-        setMessage(setData.message ?? "No se pudo crear la contrasena.");
+        toast.error(setData.message ?? "No se pudo crear la contrasena.");
         setLoading(false);
         return;
       }
@@ -63,7 +62,6 @@ export default function Home() {
       setConfirmNewPassword("");
       setPassword("");
       currentPassword = newPassword;
-      setMessage("");
     }
 
     const response = await fetch("/api/auth/login", {
@@ -81,14 +79,14 @@ export default function Home() {
     };
 
     if (!response.ok || !data.ok) {
-      setMessage(data.message ?? "No se pudo iniciar sesion.");
+      toast.error(data.message ?? "No se pudo iniciar sesion.");
       setLoading(false);
       return;
     }
 
     if (data.requiresPassword) {
       setNeedsPassword(true);
-      setMessage("Define una nueva contrasena para continuar.");
+      toast("Define una nueva contrasena para continuar.");
       setLoading(false);
       return;
     }
@@ -102,29 +100,64 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0d] text-zinc-100">
+    <div className="relative min-h-screen overflow-hidden bg-transparent text-zinc-100">
       <div className="pointer-events-none absolute -left-24 top-8 h-80 w-80 rounded-full bg-[#7c1127] opacity-35 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#0f3d36] opacity-35 blur-3xl" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]" />
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <section className="space-y-6">
+        <div className="relative grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div className="login-lines">
+            <span className="login-line" style={{ top: "22%", animationDelay: "0s" }} />
+            <span className="login-line" style={{ top: "48%", animationDelay: "2s" }} />
+            <span className="login-line" style={{ top: "74%", animationDelay: "4s" }} />
+          </div>
+
+          <section className="login-fade-in space-y-6">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-white/5">
+                <svg
+                  aria-hidden="true"
+                  className="h-5 w-5 text-white"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 4l8 16H4l8-16z" />
+                </svg>
+              </span>
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-zinc-400">
+                Control operativo
+              </p>
+            </div>
             <h1 className="text-4xl font-semibold leading-tight text-zinc-100 sm:text-5xl">
-              SistemaDeck Login
+              StockPulse
             </h1>
+            <p className="text-base text-zinc-300 sm:text-lg">
+              Cortes, conteos e inventario en una sola vista.
+            </p>
+            <div className="flex flex-wrap gap-3 text-xs uppercase tracking-[0.22em] text-zinc-400">
+              <span className="rounded-full border border-white/10 bg-[var(--panel-80)] px-3 py-2">
+                Conteos guiados
+              </span>
+              <span className="rounded-full border border-white/10 bg-[var(--panel-80)] px-3 py-2">
+                Control de cajas
+              </span>
+              <span className="rounded-full border border-white/10 bg-[var(--panel-80)] px-3 py-2">
+                Familias activas
+              </span>
+            </div>
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-[#141419]/90 p-8 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.65)] backdrop-blur">
+          <section className="login-card rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.65)] backdrop-blur">
             <div className="mb-8">
               <h2 className="text-2xl font-semibold">Bienvenido de vuelta</h2>
             </div>
 
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="login-fade-in login-fade-delay space-y-6" onSubmit={handleSubmit}>
               <label className="block space-y-2">
                 <span className="text-sm font-medium text-zinc-300">Usuario</span>
                 <input
-                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
                   type="text"
                   name="username"
                   value={username}
@@ -136,7 +169,7 @@ export default function Home() {
                 <label className="block space-y-2">
                   <span className="text-sm font-medium text-zinc-300">Contrasena</span>
                   <input
-                    className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
+                    className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
                     type="password"
                     name="password"
                     value={password}
@@ -150,7 +183,7 @@ export default function Home() {
                       Nueva contrasena
                     </span>
                     <input
-                      className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
+                      className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
                       type="password"
                       name="newPassword"
                       value={newPassword}
@@ -162,7 +195,7 @@ export default function Home() {
                       Confirmar contrasena
                     </span>
                     <input
-                      className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
+                      className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-base text-zinc-100 shadow-sm outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
                       type="password"
                       name="confirmNewPassword"
                       value={confirmNewPassword}
@@ -180,7 +213,7 @@ export default function Home() {
                   onClick={() => {
                     document.cookie = "deck_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                     document.cookie = "deck_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                    setMessage("Cookies borradas. Inicia sesion nuevamente.");
+                    toast.success("Cookies borradas. Inicia sesion nuevamente.");
                   }}
                 >
                   Borrar cookies
@@ -195,14 +228,6 @@ export default function Home() {
                 {loading ? "Ingresando..." : "Ingresar"}
               </button>
 
-              {message ? (
-                <p
-                  className="rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-300"
-                  aria-live="polite"
-                >
-                  {message}
-                </p>
-              ) : null}
             </form>
           </section>
         </div>
@@ -210,3 +235,5 @@ export default function Home() {
     </div>
   );
 }
+
+

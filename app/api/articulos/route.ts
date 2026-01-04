@@ -12,13 +12,38 @@ import {
 } from "@/lib/crypto";
 
 const COLLECTION_NAME = "store_items";
+const FAMILIES_COLLECTION = "families";
 
-function deriveFamilies(alfanumerico: string) {
+type FamilyRule = {
+  prefix: string;
+  name: string;
+};
+
+function deriveFamilies(alfanumerico: string, rules: FamilyRule[]) {
   const normalized = alfanumerico.trim().toUpperCase();
-  if (normalized.startsWith("TA")) {
-    return ["tabaco"];
+  const activeRules =
+    rules.length === 0 ? [{ prefix: "TA", name: "tabaco" }] : rules;
+  const matches = activeRules.filter(
+    (rule) => rule.prefix && normalized.startsWith(rule.prefix.toUpperCase())
+  );
+  const unique = new Map<string, string>();
+  matches.forEach((rule) => {
+    unique.set(rule.name.toLowerCase(), rule.name);
+  });
+  return Array.from(unique.values());
+}
+
+function normalizeFamilies(input: unknown) {
+  if (!Array.isArray(input)) {
+    return [];
   }
-  return [];
+  const cleaned = input
+    .filter((value) => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const unique = new Map<string, string>();
+  cleaned.forEach((value) => unique.set(value.toLowerCase(), value));
+  return Array.from(unique.values());
 }
 
 type NormalizedItem = {
@@ -38,7 +63,11 @@ type NormalizeResult =
   | { ok: true; item: NormalizedItem }
   | { ok: false; message: string };
 
-function normalizeItem(input: any, allowMissingPrice: boolean): NormalizeResult {
+function normalizeItem(
+  input: any,
+  allowMissingPrice: boolean,
+  familyRules: FamilyRule[]
+): NormalizeResult {
   const nombre =
     typeof input?.nombre === "string" ? input.nombre.trim() : "";
   const alfanumerico =
@@ -69,7 +98,11 @@ function normalizeItem(input: any, allowMissingPrice: boolean): NormalizeResult 
   }
 
   const now = new Date();
-  const familias = deriveFamilies(alfanumerico);
+  const explicitFamilies = normalizeFamilies(input?.familias);
+  const familias =
+    explicitFamilies.length > 0
+      ? explicitFamilies
+      : deriveFamilies(alfanumerico, familyRules);
 
   const item: NormalizedItem = {
     nombre: encryptString(nombre),
@@ -163,12 +196,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = await getDb();
+    const families = await db.collection(FAMILIES_COLLECTION).find({}).toArray();
+    const familyRules: FamilyRule[] = families
+      .map((familia) => ({
+        prefix: decryptString(familia.prefix),
+        name: decryptString(familia.name),
+      }))
+      .filter((rule) => rule.prefix && rule.name);
     if (isBulk) {
       const payload = itemsPayload as any[];
       const normalized: NormalizedItem[] = [];
 
       for (let i = 0; i < payload.length; i += 1) {
-        const result = normalizeItem(payload[i], true);
+        const result = normalizeItem(payload[i], true, familyRules);
         if (!result.ok) {
           return NextResponse.json(
             { message: `Item ${i + 1}: ${result.message}` },
@@ -187,7 +227,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const normalized = normalizeItem(body, false);
+    const normalized = normalizeItem(body, false, familyRules);
     if (!normalized.ok) {
       return NextResponse.json({ message: normalized.message }, { status: 400 });
     }

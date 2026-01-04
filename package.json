@@ -10,10 +10,13 @@
     "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
     "mongodb": "^6.19.0",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sonner": "^2.0.7",
+    "vyrn": "^4.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

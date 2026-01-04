@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type Articulo = {
   _id: string;
@@ -10,6 +11,12 @@ type Articulo = {
   codigoBarras?: string;
   precio: number | null;
   createdAt: string;
+};
+
+type Familia = {
+  _id: string;
+  prefix: string;
+  name: string;
 };
 
 type ArticulosResponse = {
@@ -22,18 +29,20 @@ export default function ArticulosPage() {
   const [alfanumerico, setAlfanumerico] = useState("");
   const [codigoBarras, setCodigoBarras] = useState("");
   const [precio, setPrecio] = useState("");
-  const [message, setMessage] = useState("");
+  const [familia, setFamilia] = useState("");
   const [saving, setSaving] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkJson, setBulkJson] = useState("");
   const [loading, setLoading] = useState(true);
   const [articulos, setArticulos] = useState<Articulo[]>([]);
+  const [familias, setFamilias] = useState<Familia[]>([]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNombre, setEditNombre] = useState("");
   const [editAlfanumerico, setEditAlfanumerico] = useState("");
   const [editCodigoBarras, setEditCodigoBarras] = useState("");
   const [editPrecio, setEditPrecio] = useState("");
+  const [editFamilia, setEditFamilia] = useState("");
 
   const totalArticulos = useMemo(() => articulos.length, [articulos]);
 
@@ -45,17 +54,30 @@ export default function ArticulosPage() {
       if (response.ok) {
         setArticulos(data.articulos ?? []);
       } else {
-        setMessage(data.message ?? "No se pudieron cargar los articulos.");
+        toast.error(data.message ?? "No se pudieron cargar los articulos.");
       }
     } catch (error) {
-      setMessage("Error de red al cargar los articulos.");
+      toast.error("Error de red al cargar los articulos.");
     } finally {
       setLoading(false);
     }
   };
 
+  const loadFamilias = async () => {
+    try {
+      const response = await fetch("/api/familias");
+      const data = (await response.json()) as { familias?: Familia[] };
+      if (response.ok) {
+        setFamilias(data.familias ?? []);
+      }
+    } catch (error) {
+      setFamilias([]);
+    }
+  };
+
   useEffect(() => {
     loadArticulos();
+    loadFamilias();
   }, []);
 
   const resetForm = () => {
@@ -63,19 +85,19 @@ export default function ArticulosPage() {
     setAlfanumerico("");
     setCodigoBarras("");
     setPrecio("");
+    setFamilia("");
   };
 
   const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setMessage("");
 
     if (!alfanumerico.trim()) {
-      setMessage("El codigo alfanumerico es obligatorio.");
+      toast.error("El codigo alfanumerico es obligatorio.");
       return;
     }
 
     if (!precio.trim()) {
-      setMessage("El precio es obligatorio.");
+      toast.error("El precio es obligatorio.");
       return;
     }
 
@@ -89,6 +111,7 @@ export default function ArticulosPage() {
           alfanumerico,
           codigoBarras,
           precio: Number(precio),
+          familias: familia ? [familia] : [],
         }),
       });
 
@@ -98,25 +121,24 @@ export default function ArticulosPage() {
       };
 
       if (!response.ok || !data.articulo) {
-        setMessage(data.message ?? "No se pudo guardar el articulo.");
+        toast.error(data.message ?? "No se pudo guardar el articulo.");
         return;
       }
 
       setArticulos((prev) => [data.articulo!, ...prev]);
       resetForm();
-      setMessage("Articulo guardado correctamente.");
+      toast.success("Articulo guardado correctamente.");
     } catch (error) {
-      setMessage("Error de red. Intenta de nuevo.");
+      toast.error("Error de red. Intenta de nuevo.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleBulkAdd = async () => {
-    setMessage("");
     const raw = bulkJson.trim();
     if (!raw) {
-      setMessage("Pega un JSON valido para la carga masiva.");
+      toast.error("Pega un JSON valido para la carga masiva.");
       return;
     }
 
@@ -124,12 +146,12 @@ export default function ArticulosPage() {
     try {
       parsed = JSON.parse(raw);
     } catch (error) {
-      setMessage("El JSON no es valido.");
+      toast.error("El JSON no es valido.");
       return;
     }
 
     if (!Array.isArray(parsed)) {
-      setMessage("El JSON debe ser un arreglo de articulos.");
+      toast.error("El JSON debe ser un arreglo de articulos.");
       return;
     }
 
@@ -142,16 +164,16 @@ export default function ArticulosPage() {
       });
       const data = (await response.json()) as { insertedCount?: number; message?: string };
       if (!response.ok) {
-        setMessage(data.message ?? "No se pudo cargar el JSON.");
+        toast.error(data.message ?? "No se pudo cargar el JSON.");
         return;
       }
-      setMessage(
+      toast.success(
         `Carga masiva completada. Insertados: ${data.insertedCount ?? 0}.`
       );
       setBulkJson("");
       loadArticulos();
     } catch (error) {
-      setMessage("Error de red. Intenta de nuevo.");
+      toast.error("Error de red. Intenta de nuevo.");
     } finally {
       setBulkSaving(false);
     }
@@ -167,6 +189,7 @@ export default function ArticulosPage() {
         ? ""
         : articulo.precio.toString()
     );
+    setEditFamilia((articulo.familias ?? [])[0] ?? "");
   };
 
   const cancelEdit = () => {
@@ -175,6 +198,7 @@ export default function ArticulosPage() {
     setEditAlfanumerico("");
     setEditCodigoBarras("");
     setEditPrecio("");
+    setEditFamilia("");
   };
 
   const saveEdit = async () => {
@@ -182,10 +206,8 @@ export default function ArticulosPage() {
       return;
     }
 
-    setMessage("");
-
     if (!editAlfanumerico.trim()) {
-      setMessage("El codigo alfanumerico es obligatorio.");
+      toast.error("El codigo alfanumerico es obligatorio.");
       return;
     }
 
@@ -197,19 +219,20 @@ export default function ArticulosPage() {
         alfanumerico: editAlfanumerico,
         codigoBarras: editCodigoBarras,
         precio: editPrecio.trim() === "" ? null : Number(editPrecio),
+        familias: editFamilia ? [editFamilia] : [],
       }),
     });
 
     const data = (await response.json()) as { articulo?: Articulo; message?: string };
     if (!response.ok || !data.articulo) {
-      setMessage(data.message ?? "No se pudo actualizar el articulo.");
+      toast.error(data.message ?? "No se pudo actualizar el articulo.");
       return;
     }
 
     setArticulos((prev) =>
       prev.map((item) => (item._id === data.articulo!._id ? data.articulo! : item))
     );
-    setMessage("Articulo actualizado.");
+    toast.success("Articulo actualizado.");
     cancelEdit();
   };
 
@@ -226,16 +249,16 @@ export default function ArticulosPage() {
     });
 
     if (!response.ok) {
-      setMessage("No se pudo eliminar el articulo.");
+      toast.error("No se pudo eliminar el articulo.");
       return;
     }
 
     setArticulos((prev) => prev.filter((item) => item._id !== articulo._id));
-    setMessage("Articulo eliminado.");
+    toast.success("Articulo eliminado.");
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0d] text-zinc-100">
+    <div className="relative min-h-screen overflow-hidden bg-transparent text-zinc-100">
       <div className="pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#7c1127] opacity-35 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#0f3d36] opacity-35 blur-3xl" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]" />
@@ -252,22 +275,16 @@ export default function ArticulosPage() {
             </p>
           </div>
           <a
-            className="rounded-full border border-white/10 bg-[#141419]/80 px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
+            className="rounded-full border border-white/10 bg-[var(--panel-80)] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
             href="/dashboard"
           >
             Volver al dashboard
           </a>
         </header>
 
-        {message ? (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-[#141419]/80 px-4 py-3 text-sm text-zinc-300">
-            {message}
-          </div>
-        ) : null}
-
         <section className="mt-10 grid gap-8 lg:grid-cols-[1.1fr_1fr]">
           <form
-            className="rounded-3xl border border-white/10 bg-[#141419]/90 p-8 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.55)]"
+            className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.55)]"
             onSubmit={handleCreate}
           >
             <h2 className="text-xl font-semibold">Nuevo articulo</h2>
@@ -279,7 +296,7 @@ export default function ArticulosPage() {
               <label className="space-y-2">
                 <span className="text-sm font-medium text-zinc-300">Nombre</span>
                 <input
-                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   placeholder="Ej. Marlboro Velvet"
                   value={nombre}
                   onChange={(event) => setNombre(event.target.value)}
@@ -290,18 +307,33 @@ export default function ArticulosPage() {
                   Codigo alfanumerico
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   placeholder="Ej. A-1024"
                   value={alfanumerico}
                   onChange={(event) => setAlfanumerico(event.target.value)}
                 />
               </label>
               <label className="space-y-2">
+                <span className="text-sm font-medium text-zinc-300">Familia</span>
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  value={familia}
+                  onChange={(event) => setFamilia(event.target.value)}
+                >
+                  <option value="">Selecciona una familia</option>
+                  {familias.map((item) => (
+                    <option key={item._id} value={item.name}>
+                      {item.name} ({item.prefix})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-2">
                 <span className="text-sm font-medium text-zinc-300">
                   Codigo de barras
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   placeholder="Ej. 7501234567890"
                   value={codigoBarras}
                   onChange={(event) => setCodigoBarras(event.target.value)}
@@ -310,7 +342,7 @@ export default function ArticulosPage() {
               <label className="space-y-2">
                 <span className="text-sm font-medium text-zinc-300">Precio</span>
                 <input
-                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                   type="number"
                   step="0.01"
                   placeholder="0.00"
@@ -328,7 +360,7 @@ export default function ArticulosPage() {
               {saving ? "Guardando..." : "Guardar articulo"}
             </button>
 
-            <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-[#0f0f14]/70 p-4">
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
               <h3 className="text-sm font-semibold text-zinc-100">
                 Carga masiva (JSON)
               </h3>
@@ -338,13 +370,13 @@ export default function ArticulosPage() {
                 deriva del alfanumerico.
               </p>
               <textarea
-                className="mt-3 min-h-[140px] w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-3 py-2 text-xs text-zinc-100 outline-none focus:border-[#7c1127]"
+                className="mt-3 min-h-[140px] w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-xs text-zinc-100 outline-none focus:border-[#7c1127]"
                 placeholder='[{"nombre":"Marlboro Velvet","alfanumerico":"TA1010172","codigo_barras":"75068765","precio":12.5}]'
                 value={bulkJson}
                 onChange={(event) => setBulkJson(event.target.value)}
               />
               <button
-                className="mt-3 w-full rounded-2xl border border-white/10 bg-[#141419] px-4 py-2 text-xs font-semibold text-zinc-100 disabled:cursor-not-allowed disabled:opacity-70 hover:border-[#0f3d36]"
+                className="mt-3 w-full rounded-2xl border border-white/10 bg-[var(--panel)] px-4 py-2 text-xs font-semibold text-zinc-100 disabled:cursor-not-allowed disabled:opacity-70 hover:border-[#0f3d36]"
                 type="button"
                 onClick={handleBulkAdd}
                 disabled={bulkSaving}
@@ -354,7 +386,7 @@ export default function ArticulosPage() {
             </div>
           </form>
 
-          <div className="rounded-3xl border border-white/10 bg-[#141419]/90 p-8 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
+          <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">Catalogo</h2>
@@ -363,7 +395,7 @@ export default function ArticulosPage() {
                 </p>
               </div>
               <button
-                className="rounded-full border border-white/10 bg-[#0f0f14] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#0f3d36]"
+                className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#0f3d36]"
                 type="button"
                 onClick={loadArticulos}
               >
@@ -384,30 +416,42 @@ export default function ArticulosPage() {
               {articulos.map((articulo) => (
                 <div
                   key={articulo._id}
-                  className="rounded-2xl border border-white/10 bg-[#0f0f14] p-4"
+                  className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4"
                 >
                   {editingId === articulo._id ? (
                     <div className="space-y-3">
                       <input
-                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
+                        className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
                         value={editNombre}
                         onChange={(event) => setEditNombre(event.target.value)}
                         placeholder="Nombre"
                       />
                       <input
-                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
+                        className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
                         value={editAlfanumerico}
                         onChange={(event) => setEditAlfanumerico(event.target.value)}
                         placeholder="Codigo alfanumerico"
                       />
                       <input
-                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
+                        className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
                         value={editCodigoBarras}
                         onChange={(event) => setEditCodigoBarras(event.target.value)}
                         placeholder="Codigo de barras"
                       />
+                      <select
+                        className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
+                        value={editFamilia}
+                        onChange={(event) => setEditFamilia(event.target.value)}
+                      >
+                        <option value="">Selecciona una familia</option>
+                        {familias.map((item) => (
+                          <option key={item._id} value={item.name}>
+                            {item.name} ({item.prefix})
+                          </option>
+                        ))}
+                      </select>
                       <input
-                        className="w-full rounded-xl border border-white/10 bg-[#141419] px-3 py-2 text-sm text-zinc-100"
+                        className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
                         type="number"
                         step="0.01"
                         value={editPrecio}
@@ -446,7 +490,7 @@ export default function ArticulosPage() {
                               : "Sin codigo de barras"}
                           </p>
                         </div>
-                        <span className="rounded-full bg-[#141419] px-3 py-1 text-xs text-zinc-400">
+                        <span className="rounded-full bg-[var(--panel)] px-3 py-1 text-xs text-zinc-400">
                           {articulo.precio === null
                             ? "Sin precio"
                             : `$${articulo.precio.toFixed(2)}`}
@@ -461,7 +505,7 @@ export default function ArticulosPage() {
                           articulo.familias.map((familia) => (
                             <span
                               key={familia}
-                              className="rounded-full bg-[#141419] px-3 py-1 text-xs text-zinc-400"
+                              className="rounded-full bg-[var(--panel)] px-3 py-1 text-xs text-zinc-400"
                             >
                               {familia}
                             </span>
@@ -470,14 +514,14 @@ export default function ArticulosPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <button
-                          className="rounded-full border border-white/10 bg-[#141419] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
+                          className="rounded-full border border-white/10 bg-[var(--panel)] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
                           type="button"
                           onClick={() => startEdit(articulo)}
                         >
                           Editar
                         </button>
                         <button
-                          className="rounded-full border border-white/10 bg-[#141419] px-3 py-1 text-xs font-semibold text-red-400 hover:border-red-400"
+                          className="rounded-full border border-white/10 bg-[var(--panel)] px-3 py-1 text-xs font-semibold text-red-400 hover:border-red-400"
                           type="button"
                           onClick={() => deleteArticulo(articulo)}
                         >
@@ -495,3 +539,5 @@ export default function ArticulosPage() {
     </div>
   );
 }
+
+

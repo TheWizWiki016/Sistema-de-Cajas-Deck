@@ -4,6 +4,11 @@
 :root {
   --background: #0b0b0d;
   --foreground: #f4f4f5;
+  --panel: #141419;
+  --panel-90: rgba(20, 20, 25, 0.9);
+  --panel-80: rgba(20, 20, 25, 0.8);
+  --surface: #0f0f14;
+  --surface-70: rgba(15, 15, 20, 0.7);
 }
 
 @theme inline {
@@ -13,8 +18,1352 @@
   --font-mono: var(--font-geist-mono);
 }
 
-body {
+html {
   background: var(--background);
+}
+
+body {
+  background: transparent;
   color: var(--foreground);
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  position: relative;
+  z-index: 1;
+}
+
+.login-fade-in {
+  animation: login-fade 0.9s ease-out both;
+}
+
+.login-fade-delay {
+  animation-delay: 0.2s;
+}
+
+.login-card {
+  animation: login-fade 0.9s ease-out both, login-float 8s ease-in-out infinite;
+}
+
+.login-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.login-line {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: login-line 12s linear infinite;
+}
+
+@keyframes login-fade {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes login-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes login-line {
+  0% {
+    transform: translateX(-6%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(6%);
+    opacity: 0;
+  }
+}
+
+.anim-preview {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface);
+  height: 72px;
+}
+
+.anim-preview::before,
+.anim-preview::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 46px
+    );
+  animation: data-stream 24s linear infinite;
+}
+
+.anim-preview::after {
+  opacity: 0.35;
+  background-image:
+    repeating-linear-gradient(
+      70deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 34px
+    );
+  animation: data-stream 32s linear infinite reverse;
+}
+
+html::before,
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 46px
+    );
+  animation: data-stream 24s linear infinite;
+}
+
+html::after {
+  opacity: 0.35;
+  background-image:
+    repeating-linear-gradient(
+      70deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 34px
+    );
+  animation: data-stream 32s linear infinite reverse;
+}
+
+@keyframes data-stream {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 0 480px, 0 -320px;
+  }
+}
+
+html[data-anim="stream"]::before,
+.anim-preview[data-anim="stream"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 46px
+    );
+  animation: data-stream 24s linear infinite;
+}
+
+html[data-anim="stream"]::after,
+.anim-preview[data-anim="stream"]::after {
+  opacity: 0.35;
+  background-image:
+    repeating-linear-gradient(
+      70deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 34px
+    );
+  animation: data-stream 32s linear infinite reverse;
+}
+
+html[data-anim="scan"]::before {
+  opacity: 0.75;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 22px
+    );
+  animation: data-scan 18s linear infinite;
+}
+
+html[data-anim="scan"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  animation: data-scan 26s linear infinite reverse;
+}
+
+.anim-preview[data-anim="scan"]::before {
+  opacity: 0.75;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 22px
+    );
+  animation: data-scan 18s linear infinite;
+}
+
+.anim-preview[data-anim="scan"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  animation: data-scan 26s linear infinite reverse;
+}
+
+@keyframes data-scan {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 560px;
+  }
+}
+
+html[data-anim="matrix"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 18px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 80px
+    );
+  animation: data-matrix 20s linear infinite;
+}
+
+html[data-anim="matrix"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  animation: data-matrix 28s linear infinite reverse;
+}
+
+.anim-preview[data-anim="matrix"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 18px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 80px
+    );
+  animation: data-matrix 20s linear infinite;
+}
+
+.anim-preview[data-anim="matrix"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  animation: data-matrix 28s linear infinite reverse;
+}
+
+@keyframes data-matrix {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 0 420px, 0 -180px;
+  }
+}
+
+html[data-anim="pulse"]::before {
+  opacity: 0.55;
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 36px
+    );
+  animation: data-pulse 6s ease-in-out infinite;
+}
+
+html[data-anim="pulse"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 44px
+    );
+  animation: data-pulse 9s ease-in-out infinite reverse;
+}
+
+.anim-preview[data-anim="pulse"]::before {
+  opacity: 0.55;
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 36px
+    );
+  animation: data-pulse 6s ease-in-out infinite;
+}
+
+.anim-preview[data-anim="pulse"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 44px
+    );
+  animation: data-pulse 9s ease-in-out infinite reverse;
+}
+
+@keyframes data-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(12px);
+  }
+}
+
+@keyframes data-drift {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 260px 220px, -200px -160px;
+  }
+}
+
+@keyframes data-cascade {
+  0% {
+    background-position: 0 -200px, 0 0;
+  }
+  100% {
+    background-position: 0 400px, 0 200px;
+  }
+}
+
+@keyframes data-wave {
+  0%,
+  100% {
+    background-position: 0 0, 0 0;
+  }
+  50% {
+    background-position: 0 140px, 0 -80px;
+  }
+}
+
+@keyframes data-shift {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 320px 0, -240px 0;
+  }
+}
+
+@keyframes data-orbit {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+html[data-anim="drift"]::before,
+.anim-preview[data-anim="drift"]::before {
+  opacity: 0.65;
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 30px
+    ),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 54px
+    );
+  animation: data-drift 26s linear infinite;
+}
+
+html[data-anim="drift"]::after,
+.anim-preview[data-anim="drift"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      20deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 42px
+    );
+  animation: data-drift 34s linear infinite reverse;
+}
+
+html[data-anim="horizon"]::before,
+.anim-preview[data-anim="horizon"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 26px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.02),
+      rgba(255, 255, 255, 0.02) 1px,
+      transparent 1px,
+      transparent 90px
+    );
+  animation: data-cascade 28s linear infinite;
+}
+
+html[data-anim="horizon"]::after,
+.anim-preview[data-anim="horizon"]::after {
+  opacity: 0.18;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  animation: data-cascade 36s linear infinite reverse;
+}
+
+html[data-anim="grid"]::before,
+.anim-preview[data-anim="grid"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 28px
+    );
+  animation: data-shift 30s linear infinite;
+}
+
+html[data-anim="grid"]::after,
+.anim-preview[data-anim="grid"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 70px
+    );
+  animation: data-shift 38s linear infinite reverse;
+}
+
+html[data-anim="signal"]::before,
+.anim-preview[data-anim="signal"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 18px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 80px
+    );
+  animation: data-scan 20s linear infinite;
+}
+
+html[data-anim="signal"]::after,
+.anim-preview[data-anim="signal"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 36px
+    );
+  animation: data-scan 28s linear infinite reverse;
+}
+
+html[data-anim="weave"]::before,
+.anim-preview[data-anim="weave"]::before {
+  opacity: 0.65;
+  background-image:
+    repeating-linear-gradient(
+      30deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 32px
+    ),
+    repeating-linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 48px
+    );
+  animation: data-drift 28s linear infinite;
+}
+
+html[data-anim="weave"]::after,
+.anim-preview[data-anim="weave"]::after {
+  opacity: 0.22;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-drift 36s linear infinite reverse;
+}
+
+html[data-anim="lattice"]::before,
+.anim-preview[data-anim="lattice"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      60deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 44px
+    );
+  animation: data-shift 26s linear infinite;
+}
+
+html[data-anim="lattice"]::after,
+.anim-preview[data-anim="lattice"]::after {
+  opacity: 0.24;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 90px
+    );
+  animation: data-shift 34s linear infinite reverse;
+}
+
+html[data-anim="flare"]::before,
+.anim-preview[data-anim="flare"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      20deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      200deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 52px
+    );
+  animation: data-drift 22s linear infinite;
+}
+
+html[data-anim="flare"]::after,
+.anim-preview[data-anim="flare"]::after {
+  opacity: 0.3;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 70px
+    );
+  animation: data-drift 30s linear infinite reverse;
+}
+
+html[data-anim="ripple"]::before,
+.anim-preview[data-anim="ripple"]::before {
+  opacity: 0.65;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 110px
+    );
+  animation: data-wave 12s ease-in-out infinite;
+}
+
+html[data-anim="ripple"]::after,
+.anim-preview[data-anim="ripple"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 70px
+    );
+  animation: data-wave 18s ease-in-out infinite reverse;
+}
+
+html[data-anim="orbit"]::before,
+.anim-preview[data-anim="orbit"]::before {
+  opacity: 0.55;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 36px
+    ),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 52px
+    );
+  animation: data-orbit 40s linear infinite;
+}
+
+html[data-anim="orbit"]::after,
+.anim-preview[data-anim="orbit"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-orbit 56s linear infinite reverse;
+}
+
+html[data-anim="cascade"]::before,
+.anim-preview[data-anim="cascade"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      10deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 80px
+    );
+  animation: data-cascade 22s linear infinite;
+}
+
+html[data-anim="cascade"]::after,
+.anim-preview[data-anim="cascade"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  animation: data-cascade 30s linear infinite reverse;
+}
+
+html[data-anim="echo"]::before,
+.anim-preview[data-anim="echo"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 32px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 100px
+    );
+  animation: data-wave 16s ease-in-out infinite;
+}
+
+html[data-anim="echo"]::after,
+.anim-preview[data-anim="echo"]::after {
+  opacity: 0.18;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 70px
+    );
+  animation: data-wave 22s ease-in-out infinite reverse;
+}
+
+html[data-anim="prism"]::before,
+.anim-preview[data-anim="prism"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      70deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 26px
+    ),
+    repeating-linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 44px
+    );
+  animation: data-drift 24s linear infinite;
+}
+
+html[data-anim="prism"]::after,
+.anim-preview[data-anim="prism"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 90px
+    );
+  animation: data-drift 32s linear infinite reverse;
+}
+
+html[data-anim="bands"]::before,
+.anim-preview[data-anim="bands"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 18px
+    );
+  animation: data-cascade 20s linear infinite;
+}
+
+html[data-anim="bands"]::after,
+.anim-preview[data-anim="bands"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 70px
+    );
+  animation: data-cascade 30s linear infinite reverse;
+}
+
+html[data-anim="vector"]::before,
+.anim-preview[data-anim="vector"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 16px
+    ),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 90px
+    );
+  animation: data-shift 18s linear infinite;
+}
+
+html[data-anim="vector"]::after,
+.anim-preview[data-anim="vector"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 34px
+    );
+  animation: data-shift 26s linear infinite reverse;
+}
+
+html[data-anim="wave"]::before,
+.anim-preview[data-anim="wave"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      15deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 30px
+    ),
+    repeating-linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 52px
+    );
+  animation: data-wave 14s ease-in-out infinite;
+}
+
+html[data-anim="wave"]::after,
+.anim-preview[data-anim="wave"]::after {
+  opacity: 0.22;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-wave 20s ease-in-out infinite reverse;
+}
+
+html[data-anim="runes"]::before,
+.anim-preview[data-anim="runes"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 16px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 36px
+    );
+  animation: data-matrix 18s linear infinite;
+}
+
+html[data-anim="runes"]::after,
+.anim-preview[data-anim="runes"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 90px
+    );
+  animation: data-matrix 26s linear infinite reverse;
+}
+
+html[data-anim="shards"]::before,
+.anim-preview[data-anim="shards"]::before {
+  opacity: 0.65;
+  background-image:
+    repeating-linear-gradient(
+      25deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 26px
+    ),
+    repeating-linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 46px
+    );
+  animation: data-drift 22s linear infinite;
+}
+
+html[data-anim="shards"]::after,
+.anim-preview[data-anim="shards"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-drift 30s linear infinite reverse;
+}
+
+html[data-anim="circuit"]::before,
+.anim-preview[data-anim="circuit"]::before {
+  opacity: 0.75;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 20px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 34px
+    );
+  animation: data-shift 16s linear infinite;
+}
+
+html[data-anim="circuit"]::after,
+.anim-preview[data-anim="circuit"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 50px
+    );
+  animation: data-shift 22s linear infinite reverse;
+}
+
+html[data-anim="delta"]::before,
+.anim-preview[data-anim="delta"]::before {
+  opacity: 0.65;
+  background-image:
+    repeating-linear-gradient(
+      60deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 30px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 90px
+    );
+  animation: data-drift 24s linear infinite;
+}
+
+html[data-anim="delta"]::after,
+.anim-preview[data-anim="delta"]::after {
+  opacity: 0.22;
+  background-image:
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 54px
+    );
+  animation: data-drift 32s linear infinite reverse;
+}
+
+html[data-anim="nebula"]::before,
+.anim-preview[data-anim="nebula"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 70px
+    );
+  animation: data-wave 20s ease-in-out infinite;
+}
+
+html[data-anim="nebula"]::after,
+.anim-preview[data-anim="nebula"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-wave 28s ease-in-out infinite reverse;
+}
+
+html[data-anim="current"]::before,
+.anim-preview[data-anim="current"]::before {
+  opacity: 0.7;
+  background-image:
+    repeating-linear-gradient(
+      10deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      190deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 44px
+    );
+  animation: data-drift 18s linear infinite;
+}
+
+html[data-anim="current"]::after,
+.anim-preview[data-anim="current"]::after {
+  opacity: 0.25;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-drift 26s linear infinite reverse;
+}
+
+html[data-anim="streak"]::before,
+.anim-preview[data-anim="streak"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      100deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 26px
+    ),
+    repeating-linear-gradient(
+      80deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 50px
+    );
+  animation: data-shift 20s linear infinite;
+}
+
+html[data-anim="streak"]::after,
+.anim-preview[data-anim="streak"]::after {
+  opacity: 0.22;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 110px
+    );
+  animation: data-shift 28s linear infinite reverse;
+}
+
+html[data-anim="skew"]::before,
+.anim-preview[data-anim="skew"]::before {
+  opacity: 0.65;
+  background-image:
+    repeating-linear-gradient(
+      75deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 30px
+    ),
+    repeating-linear-gradient(
+      15deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 54px
+    );
+  animation: data-drift 22s linear infinite;
+}
+
+html[data-anim="skew"]::after,
+.anim-preview[data-anim="skew"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-drift 30s linear infinite reverse;
+}
+
+html[data-anim="grid-fade"]::before,
+.anim-preview[data-anim="grid-fade"]::before {
+  opacity: 0.45;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 36px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  animation: data-shift 30s linear infinite;
+}
+
+html[data-anim="grid-fade"]::after,
+.anim-preview[data-anim="grid-fade"]::after {
+  opacity: 0.14;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 100px
+    );
+  animation: data-shift 40s linear infinite reverse;
+}
+
+html[data-anim="trace"]::before,
+.anim-preview[data-anim="trace"]::before {
+  opacity: 0.6;
+  background-image:
+    repeating-linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 90px
+    );
+  animation: data-drift 20s linear infinite;
+}
+
+html[data-anim="trace"]::after,
+.anim-preview[data-anim="trace"]::after {
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  animation: data-drift 28s linear infinite reverse;
+}
+
+html[data-anim="pulse-strong"]::before,
+.anim-preview[data-anim="pulse-strong"]::before {
+  opacity: 0.75;
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 30px
+    );
+  animation: data-pulse 5s ease-in-out infinite;
+}
+
+html[data-anim="pulse-strong"]::after,
+.anim-preview[data-anim="pulse-strong"]::after {
+  opacity: 0.35;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 44px
+    );
+  animation: data-pulse 7s ease-in-out infinite reverse;
 }

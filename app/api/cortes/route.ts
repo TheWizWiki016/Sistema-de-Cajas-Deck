@@ -23,6 +23,8 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
+  const caja =
+    typeof body?.caja === "string" ? body.caja.trim() : "";
   const corteTeorico = Number(body?.corteTeorico);
   const corteReal = Number(body?.corteReal);
   const diferencia = Number(body?.diferencia);
@@ -35,6 +37,13 @@ export async function POST(request: NextRequest) {
   if (Number.isNaN(corteTeorico) || Number.isNaN(corteReal)) {
     return NextResponse.json(
       { message: "Corte teorico y corte real son requeridos." },
+      { status: 400 }
+    );
+  }
+
+  if (!caja) {
+    return NextResponse.json(
+      { message: "La caja es requerida." },
       { status: 400 }
     );
   }
@@ -74,6 +83,7 @@ export async function POST(request: NextRequest) {
   await db.collection("cash_cuts").insertOne({
     username: encryptString(username),
     usernameHash: hashForSearch(username),
+    caja: encryptString(caja),
     corteTeorico: encryptNumber(corteTeorico),
     corteReal: encryptNumber(corteReal),
     diferencia: encryptNumber(diferenciaFinal),
@@ -130,6 +140,7 @@ export async function GET(request: NextRequest) {
   const serialized = cortes.map((corte) => ({
     _id: corte._id.toString(),
     username: decryptString(corte.username),
+    caja: decryptString(corte.caja),
     corteTeorico: decryptNumber(corte.corteTeorico) ?? 0,
     corteReal: decryptNumber(corte.corteReal) ?? 0,
     diferencia: decryptNumber(corte.diferencia) ?? 0,

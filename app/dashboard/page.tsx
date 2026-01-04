@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type Tool = {
   _id: string;
@@ -18,9 +19,19 @@ type ToolsResponse = {
   tools: Tool[];
 };
 
+type SettingsResponse = {
+  themeId?: string;
+  dashboard?: {
+    columns?: number;
+    order?: string[];
+    adminOrder?: string[];
+  };
+};
+
 type Corte = {
   _id: string;
   username: string;
+  caja: string;
   corteTeorico: number;
   corteReal: number;
   depositado: number;
@@ -42,9 +53,10 @@ const TOOL_ROUTES: Record<string, string> = {
   conteos: "/tools/conteos",
   cortes: "/tools/cortes",
   articulos: "/tools/articulos",
+  familias: "/tools/familias",
 };
 
-const ADMIN_ONLY_TOOLS = new Set(["articulos"]);
+const ADMIN_ONLY_TOOLS = new Set(["articulos", "familias"]);
 
 function getCookie(name: string) {
   const value = `; ${document.cookie}`;
@@ -62,7 +74,16 @@ export default function DashboardPage() {
   );
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [themeId, setThemeId] = useState("noir-classic");
+  const [dashboardColumns, setDashboardColumns] = useState(3);
+  const [dashboardOrder, setDashboardOrder] = useState<string[]>([]);
+  const [editingOrder, setEditingOrder] = useState(false);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [adminOrder, setAdminOrder] = useState<string[]>([]);
+  const [editingAdminOrder, setEditingAdminOrder] = useState(false);
+  const [dragAdminKey, setDragAdminKey] = useState<string | null>(null);
+  const [savingAdminOrder, setSavingAdminOrder] = useState(false);
 
   const [newLabel, setNewLabel] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -94,10 +115,12 @@ export default function DashboardPage() {
     Promise.all([
       fetch(`/api/users/role?username=${encodeURIComponent(username)}`),
       fetch("/api/tools"),
+      fetch("/api/settings"),
     ])
-      .then(async ([roleRes, toolsRes]) => {
+      .then(async ([roleRes, toolsRes, settingsRes]) => {
         const roleData = (await roleRes.json()) as RoleResponse;
         const toolsData = (await toolsRes.json()) as ToolsResponse;
+        const settingsData = (await settingsRes.json()) as SettingsResponse;
         if (!alive) {
           return;
         }
@@ -107,13 +130,16 @@ export default function DashboardPage() {
           setRole(roleData.role);
         }
         setTools(toolsData.tools ?? []);
-        setMessage("");
+        setThemeId(settingsData.themeId ?? "noir-classic");
+        setDashboardColumns(settingsData.dashboard?.columns ?? 3);
+        setDashboardOrder(settingsData.dashboard?.order ?? []);
+        setAdminOrder(settingsData.dashboard?.adminOrder ?? []);
       })
       .catch(() => {
         if (!alive) {
           return;
         }
-        setMessage("No se pudieron cargar las herramientas.");
+        toast.error("No se pudieron cargar las herramientas.");
       })
       .finally(() => {
         if (alive) {
@@ -136,10 +162,182 @@ export default function DashboardPage() {
     () => tools.filter((tool) => tool.visibleToUser),
     [tools]
   );
+  const orderedVisibleTools = useMemo(() => {
+    if (dashboardOrder.length === 0) {
+      return visibleTools;
+    }
+    const indexMap = new Map(dashboardOrder.map((key, index) => [key, index]));
+    return [...visibleTools].sort((a, b) => {
+      const aIndex = indexMap.get(a.key);
+      const bIndex = indexMap.get(b.key);
+      if (aIndex === undefined && bIndex === undefined) {
+        return a.label.localeCompare(b.label);
+      }
+      if (aIndex === undefined) {
+        return 1;
+      }
+      if (bIndex === undefined) {
+        return -1;
+      }
+      return aIndex - bIndex;
+    });
+  }, [visibleTools, dashboardOrder]);
   const userVisibleTools = useMemo(
-    () => visibleTools.filter((tool) => !ADMIN_ONLY_TOOLS.has(tool.key)),
-    [visibleTools]
+    () => orderedVisibleTools.filter((tool) => !ADMIN_ONLY_TOOLS.has(tool.key)),
+    [orderedVisibleTools]
   );
+  const gridClass = useMemo(() => {
+    switch (dashboardColumns) {
+      case 1:
+        return "grid-cols-1";
+      case 2:
+        return "grid-cols-1 sm:grid-cols-2";
+      case 4:
+        return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+      case 3:
+      default:
+        return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+    }
+  }, [dashboardColumns]);
+
+  const ADMIN_SECTION_KEYS = [
+    "tools",
+    "users",
+    "cuts",
+    "admin-access",
+    "user-view",
+  ];
+  const adminOrderIndex = (key: string) => {
+    const index = adminOrder.indexOf(key);
+    return index === -1 ? ADMIN_SECTION_KEYS.indexOf(key) : index;
+  };
+
+  const handleDrop = (targetKey: string) => {
+    if (!dragKey || dragKey === targetKey) {
+      return;
+    }
+    setDashboardOrder((prev) => {
+      const base = prev.length
+        ? [...prev]
+        : orderedVisibleTools.map((tool) => tool.key);
+      const fromIndex = base.indexOf(dragKey);
+      const toIndex = base.indexOf(targetKey);
+      if (fromIndex < 0 || toIndex < 0) {
+        return base;
+      }
+      const updated = [...base];
+      const [item] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, item);
+      return updated;
+    });
+  };
+
+  const saveDashboardOrder = async () => {
+    setSavingOrder(true);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId,
+          dashboard: {
+            columns: dashboardColumns,
+            order: dashboardOrder,
+            adminOrder,
+          },
+        }),
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        toast.error(data.message ?? "No se pudo guardar la distribucion.");
+        return;
+      }
+      toast.success("Distribucion guardada.");
+      setEditingOrder(false);
+    } catch (error) {
+      toast.error("Error de red al guardar la distribucion.");
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  const adminSections = useMemo(
+    () => [
+      { key: "tools", label: "Administrar herramientas" },
+      { key: "users", label: "Usuarios" },
+      { key: "cuts", label: "Cortes de usuarios" },
+      { key: "admin-access", label: "Accesos admin" },
+      { key: "user-view", label: "Vista usuario" },
+    ],
+    []
+  );
+  const orderedAdminSections = useMemo(() => {
+    if (adminOrder.length === 0) {
+      return adminSections;
+    }
+    const indexMap = new Map(adminOrder.map((key, index) => [key, index]));
+    return [...adminSections].sort((a, b) => {
+      const aIndex = indexMap.get(a.key);
+      const bIndex = indexMap.get(b.key);
+      if (aIndex === undefined && bIndex === undefined) {
+        return 0;
+      }
+      if (aIndex === undefined) {
+        return 1;
+      }
+      if (bIndex === undefined) {
+        return -1;
+      }
+      return aIndex - bIndex;
+    });
+  }, [adminSections, adminOrder]);
+
+  const handleAdminDrop = (targetKey: string) => {
+    if (!dragAdminKey || dragAdminKey === targetKey) {
+      return;
+    }
+    setAdminOrder((prev) => {
+      const base = prev.length ? [...prev] : adminSections.map((item) => item.key);
+      const fromIndex = base.indexOf(dragAdminKey);
+      const toIndex = base.indexOf(targetKey);
+      if (fromIndex < 0 || toIndex < 0) {
+        return base;
+      }
+      const updated = [...base];
+      const [item] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, item);
+      return updated;
+    });
+  };
+
+  const saveAdminOrder = async () => {
+    setSavingAdminOrder(true);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId,
+          dashboard: {
+            columns: dashboardColumns,
+            order: dashboardOrder,
+            adminOrder,
+          },
+        }),
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        toast.error(data.message ?? "No se pudo guardar la distribucion.");
+        return;
+      }
+      toast.success("Distribucion guardada.");
+      setEditingAdminOrder(false);
+    } catch (error) {
+      toast.error("Error de red al guardar la distribucion.");
+    } finally {
+      setSavingAdminOrder(false);
+    }
+  };
 
   const currencyFormatter = useMemo(
     () =>
@@ -157,9 +355,8 @@ export default function DashboardPage() {
   };
 
   const handleCreateTool = async () => {
-    setMessage("");
     if (!newLabel.trim()) {
-      setMessage("Agrega un nombre para la herramienta.");
+      toast.error("Agrega un nombre para la herramienta.");
       return;
     }
 
@@ -174,13 +371,14 @@ export default function DashboardPage() {
 
     const data = (await response.json()) as { tool?: Tool; message?: string };
     if (!response.ok || !data.tool) {
-      setMessage(data.message ?? "No se pudo crear la herramienta.");
+      toast.error(data.message ?? "No se pudo crear la herramienta.");
       return;
     }
 
     setTools((prev) => [...prev, data.tool!]);
     setNewLabel("");
     setNewDescription("");
+    toast.success("Herramienta creada.");
   };
 
   const startEdit = (tool: Tool) => {
@@ -214,7 +412,7 @@ export default function DashboardPage() {
 
     const data = (await response.json()) as { tool?: Tool; message?: string };
     if (!response.ok || !data.tool) {
-      setMessage(data.message ?? "No se pudo actualizar.");
+      toast.error(data.message ?? "No se pudo actualizar.");
       return;
     }
 
@@ -222,6 +420,7 @@ export default function DashboardPage() {
       prev.map((tool) => (tool._id === data.tool!._id ? data.tool! : tool))
     );
     cancelEdit();
+    toast.success("Herramienta actualizada.");
   };
 
   const toggleVisibility = async (tool: Tool) => {
@@ -237,13 +436,14 @@ export default function DashboardPage() {
 
     const data = (await response.json()) as { tool?: Tool; message?: string };
     if (!response.ok || !data.tool) {
-      setMessage(data.message ?? "No se pudo actualizar.");
+      toast.error(data.message ?? "No se pudo actualizar.");
       return;
     }
 
     setTools((prev) =>
       prev.map((item) => (item._id === data.tool!._id ? data.tool! : item))
     );
+    toast.success("Visibilidad actualizada.");
   };
 
   const deleteTool = async (tool: Tool) => {
@@ -257,17 +457,17 @@ export default function DashboardPage() {
     });
 
     if (!response.ok) {
-      setMessage("No se pudo eliminar.");
+      toast.error("No se pudo eliminar.");
       return;
     }
 
     setTools((prev) => prev.filter((item) => item._id !== tool._id));
+    toast.success("Herramienta eliminada.");
   };
 
   const createUser = async () => {
-    setMessage("");
     if (!userUsername.trim()) {
-      setMessage("Agrega un usuario para crear.");
+      toast.error("Agrega un usuario para crear.");
       return;
     }
 
@@ -282,19 +482,18 @@ export default function DashboardPage() {
 
     const data = (await response.json()) as { ok?: boolean; message?: string };
     if (!response.ok || !data.ok) {
-      setMessage(data.message ?? "No se pudo crear el usuario.");
+      toast.error(data.message ?? "No se pudo crear el usuario.");
       return;
     }
 
     setUserUsername("");
     setUserPassword("");
-    setMessage("Usuario creado.");
+    toast.success("Usuario creado.");
   };
 
   const resetUserPassword = async () => {
-    setMessage("");
     if (!resetUsername.trim()) {
-      setMessage("Agrega el usuario a actualizar.");
+      toast.error("Agrega el usuario a actualizar.");
       return;
     }
 
@@ -309,13 +508,13 @@ export default function DashboardPage() {
 
     const data = (await response.json()) as { ok?: boolean; message?: string };
     if (!response.ok || !data.ok) {
-      setMessage(data.message ?? "No se pudo actualizar el usuario.");
+      toast.error(data.message ?? "No se pudo actualizar el usuario.");
       return;
     }
 
     setResetUsername("");
     setResetPassword("");
-    setMessage("Contrasena actualizada.");
+    toast.success("Contrasena actualizada.");
   };
 
   const loadAdminCortes = async () => {
@@ -326,7 +525,7 @@ export default function DashboardPage() {
       if (response.ok) {
         setAdminCortes(data.cortes ?? []);
       } else {
-        setMessage(data.message ?? "No se pudieron cargar los cortes.");
+        toast.error(data.message ?? "No se pudieron cargar los cortes.");
       }
     } finally {
       setLoadingCortes(false);
@@ -335,8 +534,8 @@ export default function DashboardPage() {
 
   if (!username) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0b0d] px-6">
-        <div className="max-w-md rounded-3xl border border-white/10 bg-[#141419]/90 p-8 text-center shadow-[0_20px_40px_-30px_rgba(124,17,39,0.6)]">
+      <div className="flex min-h-screen items-center justify-center bg-transparent px-6">
+        <div className="max-w-md rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8 text-center shadow-[0_20px_40px_-30px_rgba(124,17,39,0.6)]">
           <h1 className="text-2xl font-semibold text-zinc-100">
             Sesion no iniciada
           </h1>
@@ -355,7 +554,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0d] text-zinc-100">
+    <div className="relative min-h-screen overflow-hidden bg-transparent text-zinc-100">
       <div className="pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#7c1127] opacity-35 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#0f3d36] opacity-35 blur-3xl" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]" />
@@ -373,7 +572,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              className="rounded-full border border-white/10 bg-[#141419]/80 px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
+              className="rounded-full border border-white/10 bg-[var(--panel-80)] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
               onClick={() => {
                 document.cookie = "deck_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                 document.cookie = "deck_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -385,18 +584,12 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {message ? (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-[#141419]/80 px-4 py-3 text-sm text-zinc-300">
-            {message}
-          </div>
-        ) : null}
-
         {loading ? (
           <div className="mt-10 text-sm text-zinc-400">Cargando herramientas...</div>
         ) : null}
 
         {role === "desconocido" ? (
-          <div className="mt-8 rounded-3xl border border-white/10 bg-[#141419]/90 p-8">
+          <div className="mt-8 rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8">
             <h2 className="text-xl font-semibold">Usuario sin registro</h2>
             <p className="mt-2 text-sm text-zinc-400">
               Solicita al administrador que cree tu usuario.
@@ -405,28 +598,70 @@ export default function DashboardPage() {
         ) : null}
 
         {role === "admin" ? (
-          <section className="mt-10 grid gap-8 lg:grid-cols-[1fr_0.9fr]">
-            <div className="space-y-8">
-              <div className="rounded-3xl border border-white/10 bg-[#141419]/90 p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.55)]">
+          <section className="mt-10">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Panel administrativo</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
+                  type="button"
+                  onClick={() => setEditingAdminOrder((prev) => !prev)}
+                >
+                  {editingAdminOrder ? "Salir de edicion" : "Reordenar secciones"}
+                </button>
+                {editingAdminOrder ? (
+                  <button
+                    className="rounded-full bg-[#7c1127] px-4 py-2 text-xs font-semibold text-white hover:bg-[#5c0b1c] disabled:opacity-70"
+                    type="button"
+                    onClick={saveAdminOrder}
+                    disabled={savingAdminOrder}
+                  >
+                    {savingAdminOrder ? "Guardando..." : "Guardar orden"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-8">
+              <div
+                className={`w-full lg:w-[calc(50%-1rem)] ${
+                  editingAdminOrder ? "cursor-move" : ""
+                }`}
+                style={{ order: adminOrderIndex("tools") }}
+                draggable={editingAdminOrder}
+                onDragStart={() => setDragAdminKey("tools")}
+                onDragEnd={() => setDragAdminKey(null)}
+                onDragOver={(event) =>
+                  editingAdminOrder ? event.preventDefault() : undefined
+                }
+                onDrop={() =>
+                  editingAdminOrder ? handleAdminDrop("tools") : undefined
+                }
+              >
+                <div
+                  className={`rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.55)] ${
+                    dragAdminKey === "tools" ? "opacity-60" : ""
+                  }`}
+                >
                 <h2 className="text-xl font-semibold">Administrar herramientas</h2>
                 <p className="mt-1 text-sm text-zinc-400">
                   Crea, edita o elimina botones del dashboard.
                 </p>
 
-                <div className="mt-6 space-y-4 rounded-2xl border border-dashed border-white/10 bg-[#0f0f14]/70 p-4">
+                <div className="mt-6 space-y-4 rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                       Nueva herramienta
                     </label>
                     <input
-                      className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                      className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                       placeholder="Nombre del boton"
                       value={newLabel}
                       onChange={(event) => setNewLabel(event.target.value)}
                     />
                   </div>
                   <textarea
-                    className="min-h-[80px] w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                    className="min-h-[80px] w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                     placeholder="Descripcion corta"
                     value={newDescription}
                     onChange={(event) => setNewDescription(event.target.value)}
@@ -448,17 +683,17 @@ export default function DashboardPage() {
                   {tools.map((tool) => (
                     <div
                       key={tool._id}
-                      className="rounded-2xl border border-white/10 bg-[#141419]/80 p-4"
+                      className="rounded-2xl border border-white/10 bg-[var(--panel-80)] p-4"
                     >
                       {editingId === tool._id ? (
                         <div className="space-y-3">
                           <input
-                            className="w-full rounded-xl border border-white/10 bg-[#0f0f14] px-3 py-2 text-sm text-zinc-100"
+                            className="w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100"
                             value={editLabel}
                             onChange={(event) => setEditLabel(event.target.value)}
                           />
                           <textarea
-                            className="min-h-[60px] w-full rounded-xl border border-white/10 bg-[#0f0f14] px-3 py-2 text-sm text-zinc-100"
+                            className="min-h-[60px] w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100"
                             value={editDescription}
                             onChange={(event) => setEditDescription(event.target.value)}
                           />
@@ -496,27 +731,27 @@ export default function DashboardPage() {
                                 {tool.description || "Sin descripcion"}
                               </p>
                             </div>
-                            <span className="rounded-full bg-[#0f0f14] px-3 py-1 text-xs text-zinc-400">
+                            <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs text-zinc-400">
                               {tool.visibleToUser ? "Visible" : "Oculto"}
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             <button
-                              className="rounded-full border border-white/10 bg-[#0f0f14] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
+                              className="rounded-full border border-white/10 bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
                               type="button"
                               onClick={() => toggleVisibility(tool)}
                             >
                               {tool.visibleToUser ? "Ocultar" : "Mostrar"}
                             </button>
                             <button
-                              className="rounded-full border border-white/10 bg-[#0f0f14] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
+                              className="rounded-full border border-white/10 bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
                               type="button"
                               onClick={() => startEdit(tool)}
                             >
                               Editar
                             </button>
                             <button
-                              className="rounded-full border border-white/10 bg-[#0f0f14] px-3 py-1 text-xs font-semibold text-red-400 hover:border-red-400"
+                              className="rounded-full border border-white/10 bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-red-400 hover:border-red-400"
                               type="button"
                               onClick={() => deleteTool(tool)}
                             >
@@ -530,26 +765,43 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-[#141419]/90 p-6 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
+            </div>
+
+              <div
+                className={`w-full lg:w-[calc(50%-1rem)] ${
+                  editingAdminOrder ? "cursor-move" : ""
+                }`}
+                style={{ order: adminOrderIndex("users") }}
+                draggable={editingAdminOrder}
+                onDragStart={() => setDragAdminKey("users")}
+                onDragEnd={() => setDragAdminKey(null)}
+                onDragOver={(event) =>
+                  editingAdminOrder ? event.preventDefault() : undefined
+                }
+                onDrop={() =>
+                  editingAdminOrder ? handleAdminDrop("users") : undefined
+                }
+              >
+                <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
                 <h2 className="text-xl font-semibold">Usuarios</h2>
                 <p className="mt-1 text-sm text-zinc-400">
                   Crea usuarios y restablece contrasenas.
                 </p>
 
                 <div className="mt-6 grid gap-4">
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-[#0f0f14]/70 p-4">
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                       Nuevo usuario
                     </p>
                     <div className="mt-3 space-y-3">
                       <input
-                        className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                        className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                         placeholder="Usuario"
                         value={userUsername}
                         onChange={(event) => setUserUsername(event.target.value)}
                       />
                       <input
-                        className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                        className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
                         placeholder="Contrasena (opcional)"
                         type="password"
                         value={userPassword}
@@ -565,19 +817,19 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-[#0f0f14]/70 p-4">
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                       Restablecer contrasena
                     </p>
                     <div className="mt-3 space-y-3">
                       <input
-                        className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                        className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
                         placeholder="Usuario"
                         value={resetUsername}
                         onChange={(event) => setResetUsername(event.target.value)}
                       />
                       <input
-                        className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                        className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
                         placeholder="Nueva contrasena (vaciar para obligar cambio)"
                         type="password"
                         value={resetPassword}
@@ -595,7 +847,24 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-[#141419]/90 p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.45)]">
+            </div>
+
+              <div
+                className={`w-full lg:w-[calc(50%-1rem)] ${
+                  editingAdminOrder ? "cursor-move" : ""
+                }`}
+                style={{ order: adminOrderIndex("cuts") }}
+                draggable={editingAdminOrder}
+                onDragStart={() => setDragAdminKey("cuts")}
+                onDragEnd={() => setDragAdminKey(null)}
+                onDragOver={(event) =>
+                  editingAdminOrder ? event.preventDefault() : undefined
+                }
+                onDrop={() =>
+                  editingAdminOrder ? handleAdminDrop("cuts") : undefined
+                }
+              >
+                <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.45)]">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold">Cortes de usuarios</h2>
@@ -604,7 +873,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <button
-                    className="rounded-full border border-white/10 bg-[#0f0f14] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
+                    className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
                     type="button"
                     onClick={loadAdminCortes}
                   >
@@ -622,7 +891,7 @@ export default function DashboardPage() {
                   {adminCortes.map((corte) => (
                     <div
                       key={corte._id}
-                      className="rounded-2xl border border-white/10 bg-[#0f0f14] p-4"
+                      className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -634,7 +903,7 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <span
-                          className={`rounded-full bg-[#141419] px-3 py-1 text-xs ${
+                          className={`rounded-full bg-[var(--panel)] px-3 py-1 text-xs ${
                             corte.diferencia < 0
                               ? "text-red-400"
                               : corte.diferencia > 0
@@ -647,6 +916,7 @@ export default function DashboardPage() {
                       </div>
 
                       <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
+                        <div>Caja: {corte.caja || "Sin caja"}</div>
                         <div>Corte teorico: {formatCurrency(corte.corteTeorico)}</div>
                         <div>Corte real: {formatCurrency(corte.corteReal)}</div>
                         <div>Depositado: {formatCurrency(corte.depositado)}</div>
@@ -671,18 +941,36 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-8">
-              <div className="rounded-3xl border border-white/10 bg-[#141419]/90 p-6 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
+            <div
+              className={`w-full lg:w-[calc(50%-1rem)] ${
+                editingAdminOrder ? "cursor-move" : ""
+              }`}
+              style={{ order: adminOrderIndex("admin-access") }}
+              draggable={editingAdminOrder}
+              onDragStart={() => setDragAdminKey("admin-access")}
+              onDragEnd={() => setDragAdminKey(null)}
+              onDragOver={(event) =>
+                editingAdminOrder ? event.preventDefault() : undefined
+              }
+              onDrop={() =>
+                editingAdminOrder ? handleAdminDrop("admin-access") : undefined
+              }
+            >
+              <div
+                className={`rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)] ${
+                  dragAdminKey === "admin-access" ? "opacity-60" : ""
+                }`}
+              >
                 <h2 className="text-xl font-semibold">Accesos admin</h2>
                 <p className="mt-1 text-sm text-zinc-400">
                   Accesos directos a gestores internos.
                 </p>
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <a
-                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
+                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
                     href="/tools/articulos"
                   >
                     <span className="text-sm font-semibold text-zinc-100">
@@ -692,27 +980,111 @@ export default function DashboardPage() {
                       Alta, edicion y carga masiva.
                     </span>
                   </a>
+                  <a
+                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
+                    href="/tools/familias"
+                  >
+                    <span className="text-sm font-semibold text-zinc-100">
+                      Familias de productos
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      Prefijos y clasificacion de articulos.
+                    </span>
+                  </a>
+                  <a
+                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
+                    href="/tools/personalizacion"
+                  >
+                    <span className="text-sm font-semibold text-zinc-100">
+                      Personalizacion
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      Tema global y layout del dashboard.
+                    </span>
+                  </a>
+                  <a
+                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
+                    href="/tools/conteos-dashboard"
+                  >
+                    <span className="text-sm font-semibold text-zinc-100">
+                      Dashboard de conteos
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      Revision de conteos guardados.
+                    </span>
+                  </a>
                 </div>
               </div>
+            </div>
 
-              <div className="rounded-3xl border border-white/10 bg-[#141419]/90 p-6 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
+            <div
+              className={`w-full lg:w-[calc(50%-1rem)] ${
+                editingAdminOrder ? "cursor-move" : ""
+              }`}
+              style={{ order: adminOrderIndex("user-view") }}
+              draggable={editingAdminOrder}
+              onDragStart={() => setDragAdminKey("user-view")}
+              onDragEnd={() => setDragAdminKey(null)}
+              onDragOver={(event) =>
+                editingAdminOrder ? event.preventDefault() : undefined
+              }
+              onDrop={() =>
+                editingAdminOrder ? handleAdminDrop("user-view") : undefined
+              }
+            >
+              <div
+                className={`rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)] ${
+                  dragAdminKey === "user-view" ? "opacity-60" : ""
+                }`}
+              >
                 <h2 className="text-xl font-semibold">Vista usuario</h2>
                 <p className="mt-1 text-sm text-zinc-400">
                   Estos son los botones que vera un usuario regular.
                 </p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {userVisibleTools.length === 0 ? (
-                  <p className="text-sm text-zinc-400">No hay botones visibles.</p>
-                ) : null}
-                {userVisibleTools.map((tool) => {
-                  const href = TOOL_ROUTES[tool.key];
-                  const Component = href ? "a" : "button";
-                  return (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
+                    type="button"
+                    onClick={() => setEditingOrder((prev) => !prev)}
+                  >
+                    {editingOrder ? "Salir de edicion" : "Reordenar iconos"}
+                  </button>
+                  {editingOrder ? (
+                    <button
+                      className="rounded-full bg-[#7c1127] px-4 py-2 text-xs font-semibold text-white hover:bg-[#5c0b1c] disabled:opacity-70"
+                      type="button"
+                      onClick={saveDashboardOrder}
+                      disabled={savingOrder}
+                    >
+                      {savingOrder ? "Guardando..." : "Guardar orden"}
+                    </button>
+                  ) : null}
+                </div>
+                <div className={`mt-6 grid gap-4 ${gridClass}`}>
+                  {userVisibleTools.length === 0 ? (
+                    <p className="text-sm text-zinc-400">No hay botones visibles.</p>
+                  ) : null}
+                  {userVisibleTools.map((tool) => {
+                    const href = TOOL_ROUTES[tool.key];
+                    const Component = href ? "a" : "button";
+                    const isDragging = dragKey === tool.key;
+                    return (
                       <Component
                         key={tool._id}
-                        className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
+                        className={`flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127] ${
+                          editingOrder ? "cursor-move" : ""
+                        } ${isDragging ? "opacity-60" : ""}`}
                         type={href ? undefined : "button"}
-                        href={href}
+                        href={editingOrder ? undefined : href}
+                        draggable={editingOrder}
+                        onDragStart={() => setDragKey(tool.key)}
+                        onDragEnd={() => setDragKey(null)}
+                        onDragOver={(event) =>
+                          editingOrder ? event.preventDefault() : undefined
+                        }
+                        onDrop={() =>
+                          editingOrder ? handleDrop(tool.key) : undefined
+                        }
                       >
                         <span className="text-sm font-semibold text-zinc-100">
                           {tool.label}
@@ -726,6 +1098,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
           </section>
         ) : null}
 
@@ -735,7 +1108,7 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-zinc-400">
               Botones habilitados por el admin.
             </p>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={`mt-6 grid gap-4 ${gridClass}`}>
               {userVisibleTools.length === 0 ? (
                 <p className="text-sm text-zinc-400">No hay herramientas activas.</p>
               ) : null}
@@ -745,7 +1118,7 @@ export default function DashboardPage() {
                 return (
                   <Component
                     key={tool._id}
-                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[#0f0f14] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
+                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
                     type={href ? undefined : "button"}
                     href={href}
                   >
@@ -765,3 +1138,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
