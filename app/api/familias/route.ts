@@ -20,7 +20,7 @@ async function requireAuth() {
   return { db, username };
 }
 
-async function requireAdmin() {
+async function requireSuperRoot() {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) {
     return auth;
@@ -33,7 +33,7 @@ async function requireAdmin() {
   );
   const role = user?.role ? decryptString(user.role) : "";
 
-  if (role !== "admin") {
+  if (role !== "super-root") {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
@@ -64,9 +64,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const adminResponse = await requireAdmin();
-  if (adminResponse) {
-    return adminResponse;
+  const authResponse = await requireSuperRoot();
+  if (authResponse) {
+    return authResponse;
   }
 
   const body = await request.json();

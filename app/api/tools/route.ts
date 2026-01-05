@@ -32,7 +32,7 @@ async function requireAuth(): Promise<AuthResult> {
   return { ok: true, username };
 }
 
-async function requireAdmin(): Promise<AuthResult> {
+async function requireSuperRoot(): Promise<AuthResult> {
   const auth = await requireAuth();
   if (!auth.ok) {
     return auth;
@@ -45,7 +45,7 @@ async function requireAdmin(): Promise<AuthResult> {
   );
   const role = user?.role ? decryptString(user.role) : "";
 
-  if (role !== "admin") {
+  if (role !== "super-root") {
     return {
       ok: false,
       response: NextResponse.json({ message: "No autorizado." }, { status: 403 }),
@@ -83,9 +83,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const admin = await requireAdmin();
-  if (!admin.ok) {
-    return admin.response;
+  const auth = await requireSuperRoot();
+  if (!auth.ok) {
+    return auth.response;
   }
 
   const body = await request.json();

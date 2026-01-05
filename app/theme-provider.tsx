@@ -30,7 +30,9 @@ export default function ThemeProvider() {
       }
       const root = document.documentElement;
       root.dataset.anim = animationStyle || DEFAULT_ANIMATION_ID;
+      root.dataset.theme = theme.id;
       root.style.setProperty("--background", theme.background);
+      root.style.setProperty("--foreground", theme.foreground);
       root.style.setProperty("--panel", theme.panel);
       root.style.setProperty("--panel-90", toRgba(theme.panel, 0.9));
       root.style.setProperty("--panel-80", toRgba(theme.panel, 0.8));

@@ -4,12 +4,12 @@ import { hashForSearch } from "@/lib/crypto";
 
 export async function GET() {
   const db = await getDb();
-  const admin = await db.collection("users").findOne(
-    { roleHash: hashForSearch("admin") },
+  const superRoot = await db.collection("users").findOne(
+    { roleHash: hashForSearch("super-root") },
     { projection: { _id: 1 } }
   );
 
   return NextResponse.json({
-    hasAdmin: Boolean(admin),
+    hasSuperRoot: Boolean(superRoot),
   });
 }

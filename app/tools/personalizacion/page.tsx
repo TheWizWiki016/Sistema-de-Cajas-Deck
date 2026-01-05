@@ -24,7 +24,7 @@ type SettingsResponse = {
 };
 
 type RoleResponse = {
-  role: "admin" | "usuario" | null;
+  role: "super-root" | "admin" | "usuario" | null;
 };
 
 const toRgba = (hex: string, alpha: number) => {
@@ -50,7 +50,9 @@ const applyTheme = (themeId: string) => {
     return;
   }
   const root = document.documentElement;
+  root.dataset.theme = theme.id;
   root.style.setProperty("--background", theme.background);
+  root.style.setProperty("--foreground", theme.foreground);
   root.style.setProperty("--panel", theme.panel);
   root.style.setProperty("--panel-90", toRgba(theme.panel, 0.9));
   root.style.setProperty("--panel-80", toRgba(theme.panel, 0.8));
@@ -68,9 +70,9 @@ function getCookie(name: string) {
 }
 
 export default function PersonalizacionPage() {
-  const [role, setRole] = useState<"admin" | "usuario" | "desconocido">(
-    "desconocido"
-  );
+  const [role, setRole] = useState<
+    "super-root" | "admin" | "usuario" | "desconocido"
+  >("desconocido");
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -183,7 +185,7 @@ export default function PersonalizacionPage() {
   };
 
   const saveSettings = async () => {
-    if (role !== "admin") {
+    if (role !== "super-root") {
       toast.error("No autorizado.");
       return;
     }
@@ -224,7 +226,7 @@ export default function PersonalizacionPage() {
     );
   }
 
-  if (role !== "admin") {
+  if (role !== "super-root") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-transparent px-6 text-zinc-100">
         <div className="max-w-md rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8 text-center">
@@ -232,7 +234,7 @@ export default function PersonalizacionPage() {
             Acceso restringido
           </h1>
           <p className="mt-3 text-sm text-zinc-400">
-            Solo un administrador puede editar la personalizacion.
+            Solo super root puede editar la personalizacion.
           </p>
           <a
             className="mt-6 inline-flex rounded-full bg-[#7c1127] px-4 py-2 text-sm font-semibold text-white"

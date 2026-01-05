@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   dashboard: DEFAULT_DASHBOARD,
 };
 
-async function requireAdmin() {
+async function requireSuperRoot() {
   const cookieStore = await cookies();
   const username = cookieStore.get("deck_user")?.value;
 
@@ -50,7 +50,7 @@ async function requireAdmin() {
   );
   const role = user?.role ? decryptString(user.role) : "";
 
-  if (role !== "admin") {
+  if (role !== "super-root") {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
@@ -108,7 +108,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireSuperRoot();
   if (auth instanceof NextResponse) {
     return auth;
   }

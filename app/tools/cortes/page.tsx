@@ -20,6 +20,19 @@ type Corte = {
   fondoValidado: boolean;
   fondoCantidad?: number;
   pendientes: { text: string; done: boolean }[];
+  ajustes?: {
+    _id: string;
+    corteTeorico: number;
+    corteReal: number;
+    diferencia: number;
+    depositado: number;
+    pico: number;
+    fondoValidado: boolean;
+    fondoCantidad?: number;
+    adjustedBy?: string;
+    adjustmentNote?: string;
+    createdAt: string;
+  }[];
   createdAt: string;
 };
 
@@ -552,6 +565,61 @@ export default function CortesPage() {
                           <span className="text-xs text-zinc-400">
                             {task.done ? "Listo" : "Pendiente"}
                           </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {corte.ajustes?.length ? (
+                  <div className="mt-4 space-y-2 text-sm text-zinc-300">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                      Ajustes realizados
+                    </p>
+                    <div className="space-y-2">
+                      {corte.ajustes.map((ajuste) => (
+                        <div
+                          key={ajuste._id}
+                          className="rounded-2xl border border-white/10 bg-[var(--panel)] px-4 py-2"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+                            <span>
+                              {new Date(ajuste.createdAt).toLocaleString()}
+                            </span>
+                            {ajuste.adjustedBy ? (
+                              <span>por {ajuste.adjustedBy}</span>
+                            ) : null}
+                          </div>
+                          <div className="mt-2 grid gap-2 text-xs text-zinc-300 sm:grid-cols-3">
+                            <div>
+                              Diferencia:{" "}
+                              <span className={valueTone(ajuste.diferencia)}>
+                                {formatSignedCurrency(ajuste.diferencia)}
+                              </span>
+                            </div>
+                            <div>
+                              Depositado: {formatCurrency(ajuste.depositado)}
+                            </div>
+                            <div>Pico: {formatSignedCurrency(ajuste.pico)}</div>
+                            <div>
+                              Corte teorico: {formatCurrency(ajuste.corteTeorico)}
+                            </div>
+                            <div>
+                              Corte real: {formatCurrency(ajuste.corteReal)}
+                            </div>
+                            <div>
+                              Fondo:{" "}
+                              {ajuste.fondoValidado
+                                ? ajuste.fondoCantidad !== undefined
+                                  ? formatCurrency(ajuste.fondoCantidad)
+                                  : "Validado"
+                                : "No validado"}
+                            </div>
+                          </div>
+                          {ajuste.adjustmentNote ? (
+                            <p className="mt-2 text-xs text-zinc-400">
+                              Nota: {ajuste.adjustmentNote}
+                            </p>
+                          ) : null}
                         </div>
                       ))}
                     </div>

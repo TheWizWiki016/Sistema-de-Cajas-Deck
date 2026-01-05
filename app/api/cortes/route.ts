@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       fondoValidado && fondoCantidad !== undefined
         ? encryptNumber(fondoCantidad)
         : undefined,
+    isAdjustment: false,
     createdAt: new Date(),
   });
 
@@ -121,14 +122,15 @@ export async function GET(request: NextRequest) {
   );
   const role = user?.role ? decryptString(user.role) : "";
 
-  if (wantsAll && role !== "admin") {
+  const canViewAll = role === "admin" || role === "super-root";
+  if (wantsAll && !canViewAll) {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
   const query =
-    wantsAll && role === "admin"
+    wantsAll && canViewAll
       ? {}
-      : { usernameHash: hashForSearch(username) };
+      : { usernameHash: hashForSearch(username), isAdjustment: { $ne: true } };
 
   const cortes = await db
     .collection("cash_cuts")
@@ -136,6 +138,26 @@ export async function GET(request: NextRequest) {
     .sort({ createdAt: -1 })
     .limit(60)
     .toArray();
+
+  const originalIds = cortes.map((corte) => corte._id);
+  const ajustes =
+    originalIds.length > 0
+      ? await db
+          .collection("cash_cuts")
+          .find({ isAdjustment: true, originalId: { $in: originalIds } })
+          .sort({ createdAt: -1 })
+          .toArray()
+      : [];
+  const ajustesPorOriginal = new Map<string, typeof ajustes>();
+  ajustes.forEach((ajuste) => {
+    const key = ajuste.originalId?.toString();
+    if (!key) {
+      return;
+    }
+    const list = ajustesPorOriginal.get(key) ?? [];
+    list.push(ajuste);
+    ajustesPorOriginal.set(key, list);
+  });
 
   const serialized = cortes.map((corte) => ({
     _id: corte._id.toString(),
@@ -154,6 +176,29 @@ export async function GET(request: NextRequest) {
           done: decryptBoolean(task?.done),
         }))
       : [],
+    isAdjustment: Boolean(corte.isAdjustment),
+    originalId: corte.originalId ? corte.originalId.toString() : null,
+    adjustedBy: corte.adjustedBy ? decryptString(corte.adjustedBy) : "",
+    adjustmentNote: corte.adjustmentNote
+      ? decryptString(corte.adjustmentNote)
+      : "",
+    ajustes: (ajustesPorOriginal.get(corte._id.toString()) ?? []).map(
+      (ajuste) => ({
+        _id: ajuste._id.toString(),
+        corteTeorico: decryptNumber(ajuste.corteTeorico) ?? 0,
+        corteReal: decryptNumber(ajuste.corteReal) ?? 0,
+        diferencia: decryptNumber(ajuste.diferencia) ?? 0,
+        depositado: decryptNumber(ajuste.depositado) ?? 0,
+        pico: decryptNumber(ajuste.pico) ?? 0,
+        fondoValidado: decryptBoolean(ajuste.fondoValidado),
+        fondoCantidad: decryptNumber(ajuste.fondoCantidad),
+        adjustedBy: ajuste.adjustedBy ? decryptString(ajuste.adjustedBy) : "",
+        adjustmentNote: ajuste.adjustmentNote
+          ? decryptString(ajuste.adjustmentNote)
+          : "",
+        createdAt: ajuste.createdAt,
+      })
+    ),
     createdAt: corte.createdAt,
   }));
 

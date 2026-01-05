@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { DEFAULT_THEME_ID } from "@/lib/themes";
 
 type Tool = {
   _id: string;
@@ -12,7 +13,7 @@ type Tool = {
 };
 
 type RoleResponse = {
-  role: "admin" | "usuario" | null;
+  role: "super-root" | "admin" | "usuario" | null;
 };
 
 type ToolsResponse = {
@@ -40,6 +41,10 @@ type Corte = {
   fondoValidado: boolean;
   fondoCantidad?: number;
   pendientes: { text: string; done: boolean }[];
+  isAdjustment?: boolean;
+  originalId?: string | null;
+  adjustedBy?: string;
+  adjustmentNote?: string;
   createdAt: string;
 };
 
@@ -47,6 +52,17 @@ type CortesResponse = {
   cortes: Corte[];
   message?: string;
 };
+
+type AjusteForm = {
+  caja: string;
+  corteTeorico: string;
+  corteReal: string;
+  depositado: string;
+  fondoValidado: boolean;
+  fondoCantidad: string;
+};
+
+const ADMIN_CAJAS = ["Caja 1", "Caja 2"];
 
 const TOOL_ROUTES: Record<string, string> = {
   "imprimir-precios": "/tools/imprimir-precios",
@@ -69,12 +85,12 @@ function getCookie(name: string) {
 
 export default function DashboardPage() {
   const [username, setUsername] = useState("");
-  const [role, setRole] = useState<"admin" | "usuario" | "desconocido">(
-    "desconocido"
-  );
+  const [role, setRole] = useState<
+    "super-root" | "admin" | "usuario" | "desconocido"
+  >("desconocido");
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
-  const [themeId, setThemeId] = useState("noir-classic");
+  const [themeId, setThemeId] = useState(DEFAULT_THEME_ID);
   const [dashboardColumns, setDashboardColumns] = useState(3);
   const [dashboardOrder, setDashboardOrder] = useState<string[]>([]);
   const [editingOrder, setEditingOrder] = useState(false);
@@ -98,6 +114,29 @@ export default function DashboardPage() {
   const [resetPassword, setResetPassword] = useState("");
   const [adminCortes, setAdminCortes] = useState<Corte[]>([]);
   const [loadingCortes, setLoadingCortes] = useState(false);
+  const [editingCorteId, setEditingCorteId] = useState<string | null>(null);
+  const [savingAjuste, setSavingAjuste] = useState(false);
+  const [ajusteNote, setAjusteNote] = useState("");
+  const [ajusteForm, setAjusteForm] = useState<AjusteForm>({
+    caja: "",
+    corteTeorico: "",
+    corteReal: "",
+    depositado: "",
+    fondoValidado: false,
+    fondoCantidad: "",
+  });
+  const [adminCorteCaja, setAdminCorteCaja] = useState("");
+  const [adminCorteTeorico, setAdminCorteTeorico] = useState("");
+  const [adminCorteReal, setAdminCorteReal] = useState("");
+  const [adminCorteDepositado, setAdminCorteDepositado] = useState("");
+  const [adminCorteFondoValidado, setAdminCorteFondoValidado] = useState<
+    "si" | "no"
+  >("no");
+  const [adminCorteFondoCantidad, setAdminCorteFondoCantidad] = useState("");
+  const [savingAdminCorte, setSavingAdminCorte] = useState(false);
+  const [roleUsername, setRoleUsername] = useState("");
+  const [roleValue, setRoleValue] = useState("usuario");
+  const [savingRole, setSavingRole] = useState(false);
 
   useEffect(() => {
     const storedUser = getCookie("deck_user");
@@ -130,7 +169,7 @@ export default function DashboardPage() {
           setRole(roleData.role);
         }
         setTools(toolsData.tools ?? []);
-        setThemeId(settingsData.themeId ?? "noir-classic");
+        setThemeId(settingsData.themeId ?? DEFAULT_THEME_ID);
         setDashboardColumns(settingsData.dashboard?.columns ?? 3);
         setDashboardOrder(settingsData.dashboard?.order ?? []);
         setAdminOrder(settingsData.dashboard?.adminOrder ?? []);
@@ -153,7 +192,7 @@ export default function DashboardPage() {
   }, [username]);
 
   useEffect(() => {
-    if (role === "admin") {
+    if (role === "admin" || role === "super-root") {
       loadAdminCortes();
     }
   }, [role]);
@@ -266,7 +305,7 @@ export default function DashboardPage() {
       { key: "tools", label: "Administrar herramientas" },
       { key: "users", label: "Usuarios" },
       { key: "cuts", label: "Cortes de usuarios" },
-      { key: "admin-access", label: "Accesos admin" },
+      { key: "admin-access", label: "Accesos super root" },
       { key: "user-view", label: "Vista usuario" },
     ],
     []
@@ -352,6 +391,678 @@ export default function DashboardPage() {
   const formatSignedCurrency = (value: number) => {
     const sign = value > 0 ? "+" : "";
     return `${sign}${formatCurrency(value)}`;
+  };
+  const roleLabel =
+    role === "super-root"
+      ? "super root"
+      : role === "desconocido"
+      ? "sin registro"
+      : role;
+  const parseNumberInput = (value: string) => {
+    const normalized = value.replace(/[^\d.,-]/g, "").trim();
+    if (!normalized) {
+      return null;
+    }
+    const usesCommaAsDecimal =
+      normalized.includes(",") && !normalized.includes(".");
+    const cleaned = usesCommaAsDecimal
+      ? normalized.replace(/\./g, "").replace(",", ".")
+      : normalized.replace(/,/g, "");
+    const parsed = Number(cleaned);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const { originalCortes, ajustesPorOriginal } = useMemo(() => {
+    const originals: Corte[] = [];
+    const ajustes = new Map<string, Corte[]>();
+    adminCortes.forEach((corte) => {
+      if (corte.isAdjustment && corte.originalId) {
+        const list = ajustes.get(corte.originalId) ?? [];
+        list.push(corte);
+        ajustes.set(corte.originalId, list);
+      } else {
+        originals.push(corte);
+      }
+    });
+    return { originalCortes: originals, ajustesPorOriginal: ajustes };
+  }, [adminCortes]);
+
+  const startAjuste = (corte: Corte) => {
+    setEditingCorteId(corte._id);
+    setAjusteNote("");
+    setAjusteForm({
+      caja: corte.caja ?? "",
+      corteTeorico: String(corte.corteTeorico ?? ""),
+      corteReal: String(corte.corteReal ?? ""),
+      depositado: String(corte.depositado ?? ""),
+      fondoValidado: Boolean(corte.fondoValidado),
+      fondoCantidad:
+        corte.fondoCantidad !== undefined ? String(corte.fondoCantidad) : "",
+    });
+  };
+
+  const cancelAjuste = () => {
+    setEditingCorteId(null);
+    setAjusteNote("");
+    setAjusteForm({
+      caja: "",
+      corteTeorico: "",
+      corteReal: "",
+      depositado: "",
+      fondoValidado: false,
+      fondoCantidad: "",
+    });
+  };
+
+  const saveAdminCorte = async () => {
+    const corteTeoricoValue = parseNumberInput(adminCorteTeorico);
+    const corteRealValue = parseNumberInput(adminCorteReal);
+    const depositadoValue = parseNumberInput(adminCorteDepositado);
+    const fondoCantidadValue = parseNumberInput(adminCorteFondoCantidad);
+
+    if (!adminCorteCaja) {
+      toast.error("Selecciona una caja.");
+      return;
+    }
+
+    if (corteTeoricoValue === null || corteRealValue === null) {
+      toast.error("Completa corte teorico y corte real.");
+      return;
+    }
+
+    if (depositadoValue === null) {
+      toast.error("Ingresa el monto depositado.");
+      return;
+    }
+
+    if (adminCorteFondoValidado === "si" && fondoCantidadValue === null) {
+      toast.error("Ingresa la cantidad del fondo validado.");
+      return;
+    }
+
+    setSavingAdminCorte(true);
+    try {
+      const diferenciaValue = corteRealValue - corteTeoricoValue;
+      const picoValue = corteRealValue - depositadoValue;
+      const response = await fetch("/api/cortes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caja: adminCorteCaja,
+          corteTeorico: corteTeoricoValue,
+          corteReal: corteRealValue,
+          diferencia: diferenciaValue,
+          depositado: depositadoValue,
+          pico: picoValue,
+          fondoValidado: adminCorteFondoValidado === "si",
+          fondoCantidad:
+            adminCorteFondoValidado === "si"
+              ? fondoCantidadValue ?? 0
+              : undefined,
+        }),
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        toast.error(data.message ?? "No se pudo guardar el corte.");
+        return;
+      }
+      toast.success("Corte guardado.");
+      setAdminCorteCaja("");
+      setAdminCorteTeorico("");
+      setAdminCorteReal("");
+      setAdminCorteDepositado("");
+      setAdminCorteFondoValidado("no");
+      setAdminCorteFondoCantidad("");
+      loadAdminCortes();
+    } catch (error) {
+      toast.error("Error de red al guardar el corte.");
+    } finally {
+      setSavingAdminCorte(false);
+    }
+  };
+
+  const saveAjuste = async () => {
+    if (!editingCorteId) {
+      return;
+    }
+    setSavingAjuste(true);
+    try {
+      const corteTeoricoValue = parseNumberInput(ajusteForm.corteTeorico);
+      const corteRealValue = parseNumberInput(ajusteForm.corteReal);
+      const depositadoValue = parseNumberInput(ajusteForm.depositado);
+      const fondoCantidadValue = parseNumberInput(ajusteForm.fondoCantidad);
+
+      if (!ajusteForm.caja.trim()) {
+        toast.error("La caja es requerida.");
+        setSavingAjuste(false);
+        return;
+      }
+      if (corteTeoricoValue === null || corteRealValue === null) {
+        toast.error("Completa corte teorico y corte real.");
+        setSavingAjuste(false);
+        return;
+      }
+      if (depositadoValue === null) {
+        toast.error("Ingresa el monto depositado.");
+        setSavingAjuste(false);
+        return;
+      }
+      if (ajusteForm.fondoValidado && fondoCantidadValue === null) {
+        toast.error("Ingresa la cantidad del fondo validado.");
+        setSavingAjuste(false);
+        return;
+      }
+
+      const diferenciaValue = corteRealValue - corteTeoricoValue;
+      const picoValue = corteRealValue - depositadoValue;
+      const response = await fetch("/api/cortes/ajustes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalId: editingCorteId,
+          caja: ajusteForm.caja,
+          corteTeorico: corteTeoricoValue,
+          corteReal: corteRealValue,
+          diferencia: diferenciaValue,
+          depositado: depositadoValue,
+          pico: picoValue,
+          fondoValidado: ajusteForm.fondoValidado,
+          fondoCantidad:
+            ajusteForm.fondoValidado && fondoCantidadValue !== null
+              ? fondoCantidadValue
+              : undefined,
+          note: ajusteNote,
+        }),
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        toast.error(data.message ?? "No se pudo guardar el ajuste.");
+        return;
+      }
+      toast.success("Ajuste guardado.");
+      cancelAjuste();
+      loadAdminCortes();
+    } catch (error) {
+      toast.error("Error de red al guardar el ajuste.");
+    } finally {
+      setSavingAjuste(false);
+    }
+  };
+
+  const assignRole = async () => {
+    if (!roleUsername.trim()) {
+      toast.error("Agrega un usuario.");
+      return;
+    }
+    setSavingRole(true);
+    try {
+      const response = await fetch("/api/users/manage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: roleUsername.trim(),
+          role: roleValue,
+        }),
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        toast.error(data.message ?? "No se pudo actualizar el rol.");
+        return;
+      }
+      toast.success("Rol actualizado.");
+      setRoleUsername("");
+      setRoleValue("usuario");
+    } catch (error) {
+      toast.error("Error de red al actualizar el rol.");
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  const renderCortesBody = (showAdminForm: boolean) => {
+    const adminTeorico = parseNumberInput(adminCorteTeorico);
+    const adminReal = parseNumberInput(adminCorteReal);
+    const adminDepositado = parseNumberInput(adminCorteDepositado);
+    const adminCompleto =
+      adminTeorico !== null && adminReal !== null && adminDepositado !== null;
+    const adminDiferencia = adminCompleto ? adminReal - adminTeorico : null;
+    const adminPico = adminCompleto ? adminReal - adminDepositado : null;
+
+    return (
+      <>
+      {showAdminForm ? (
+        <div className="mb-6 rounded-2xl border border-white/10 bg-[var(--surface)] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-100">
+                Nuevo corte (admin)
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Guarda un corte como admin.
+              </p>
+            </div>
+            <button
+              className="rounded-full bg-[#0f3d36] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0b2a24] disabled:opacity-70"
+              type="button"
+              onClick={saveAdminCorte}
+              disabled={savingAdminCorte}
+            >
+              {savingAdminCorte ? "Guardando..." : "Guardar corte"}
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 text-xs text-zinc-400 sm:grid-cols-2">
+            <label>
+              Caja
+              <select
+                className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                value={adminCorteCaja}
+                onChange={(event) => setAdminCorteCaja(event.target.value)}
+              >
+                <option value="">Selecciona una caja</option>
+                {ADMIN_CAJAS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Corte teorico
+              <input
+                className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                type="text"
+                inputMode="decimal"
+                value={adminCorteTeorico}
+                onChange={(event) => setAdminCorteTeorico(event.target.value)}
+              />
+            </label>
+            <label>
+              Corte real
+              <input
+                className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                type="text"
+                inputMode="decimal"
+                value={adminCorteReal}
+                onChange={(event) => setAdminCorteReal(event.target.value)}
+              />
+            </label>
+            <label>
+              Depositado
+              <input
+                className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                type="text"
+                inputMode="decimal"
+                value={adminCorteDepositado}
+                onChange={(event) =>
+                  setAdminCorteDepositado(event.target.value)
+                }
+              />
+            </label>
+            <label>
+              Fondo validado
+              <select
+                className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                value={adminCorteFondoValidado}
+                onChange={(event) =>
+                  setAdminCorteFondoValidado(
+                    event.target.value as "si" | "no"
+                  )
+                }
+              >
+                <option value="no">No</option>
+                <option value="si">Si</option>
+              </select>
+            </label>
+            <label>
+              Fondo cantidad
+              <input
+                className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                type="text"
+                inputMode="decimal"
+                value={adminCorteFondoCantidad}
+                onChange={(event) =>
+                  setAdminCorteFondoCantidad(event.target.value)
+                }
+              />
+            </label>
+          </div>
+          <div className="mt-4 grid gap-3 text-xs text-zinc-300 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-[var(--panel)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                Diferencia
+              </p>
+              <p className="mt-2 text-sm font-semibold">
+                {adminDiferencia === null
+                  ? "--"
+                  : formatSignedCurrency(adminDiferencia)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-[var(--panel)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                Pico
+              </p>
+              <p className="mt-2 text-sm font-semibold">
+                {adminPico === null ? "--" : formatSignedCurrency(adminPico)}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold">Cortes de usuarios</h2>
+          <p className="mt-1 text-sm text-zinc-400">
+            Vista global de los ultimos cortes.
+          </p>
+        </div>
+        <button
+          className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
+          type="button"
+          onClick={loadAdminCortes}
+        >
+          Actualizar
+        </button>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        {loadingCortes ? (
+          <p className="text-sm text-zinc-400">Cargando cortes...</p>
+        ) : null}
+        {!loadingCortes && originalCortes.length === 0 ? (
+          <p className="text-sm text-zinc-400">No hay cortes registrados.</p>
+        ) : null}
+        {originalCortes.map((corte) => {
+          const ajustes = ajustesPorOriginal.get(corte._id) ?? [];
+          const isEditing = editingCorteId === corte._id;
+          const ajusteTeorico = parseNumberInput(ajusteForm.corteTeorico);
+          const ajusteReal = parseNumberInput(ajusteForm.corteReal);
+          const ajusteDepositado = parseNumberInput(ajusteForm.depositado);
+          const ajusteCompleto =
+            ajusteTeorico !== null &&
+            ajusteReal !== null &&
+            ajusteDepositado !== null;
+          const nuevaDiferencia = ajusteCompleto
+            ? ajusteReal - ajusteTeorico
+            : null;
+          const nuevoPico = ajusteCompleto
+            ? ajusteReal - ajusteDepositado
+            : null;
+          return (
+            <div
+              key={corte._id}
+              className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">
+                    {corte.username || "Usuario"}
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    {new Date(corte.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full bg-[var(--panel)] px-3 py-1 text-xs ${
+                    corte.diferencia < 0
+                      ? "text-red-400"
+                      : corte.diferencia > 0
+                      ? "text-emerald-400"
+                      : "text-zinc-200"
+                  }`}
+                >
+                  Diferencia {formatSignedCurrency(corte.diferencia)}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
+                <div>Caja: {corte.caja || "Sin caja"}</div>
+                <div>Corte teorico: {formatCurrency(corte.corteTeorico)}</div>
+                <div>Corte real: {formatCurrency(corte.corteReal)}</div>
+                <div>Depositado: {formatCurrency(corte.depositado)}</div>
+                <div>Pico: {formatSignedCurrency(corte.pico)}</div>
+                <div>
+                  Fondo:{" "}
+                  {corte.fondoValidado
+                    ? corte.fondoCantidad !== undefined
+                      ? formatCurrency(corte.fondoCantidad)
+                      : "Validado"
+                    : "No validado"}
+                </div>
+                <div>
+                  Pendientes:{" "}
+                  {corte.pendientes?.length
+                    ? `${corte.pendientes.filter((t) => t.done).length}/${
+                        corte.pendientes.length
+                      }`
+                    : "0"}
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button
+                  className="rounded-full border border-white/10 bg-[var(--panel)] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#0f3d36]"
+                  type="button"
+                  onClick={() => startAjuste(corte)}
+                >
+                  Validar / Ajustar
+                </button>
+                {ajustes.length > 0 ? (
+                  <span className="text-xs text-zinc-400">
+                    Ajustes: {ajustes.length}
+                  </span>
+                ) : null}
+              </div>
+
+              {isEditing ? (
+                <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-[var(--panel)] p-4 sm:grid-cols-2">
+                  <label className="text-xs text-zinc-400">
+                    Caja
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                      value={ajusteForm.caja}
+                      onChange={(event) =>
+                        setAjusteForm((prev) => ({
+                          ...prev,
+                          caja: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="text-xs text-zinc-400">
+                    Corte teorico
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                      type="number"
+                      value={ajusteForm.corteTeorico}
+                      onChange={(event) =>
+                        setAjusteForm((prev) => ({
+                          ...prev,
+                          corteTeorico: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="text-xs text-zinc-400">
+                    Corte real
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                      type="number"
+                      value={ajusteForm.corteReal}
+                      onChange={(event) =>
+                        setAjusteForm((prev) => ({
+                          ...prev,
+                          corteReal: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="text-xs text-zinc-400">
+                    Depositado
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                      type="number"
+                      value={ajusteForm.depositado}
+                      onChange={(event) =>
+                        setAjusteForm((prev) => ({
+                          ...prev,
+                          depositado: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="text-xs text-zinc-400">
+                    Fondo validado
+                    <select
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                      value={ajusteForm.fondoValidado ? "si" : "no"}
+                      onChange={(event) =>
+                        setAjusteForm((prev) => ({
+                          ...prev,
+                          fondoValidado: event.target.value === "si",
+                        }))
+                      }
+                    >
+                      <option value="no">No</option>
+                      <option value="si">Si</option>
+                    </select>
+                  </label>
+                  <label className="text-xs text-zinc-400">
+                    Fondo cantidad
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                      type="number"
+                      value={ajusteForm.fondoCantidad}
+                      onChange={(event) =>
+                        setAjusteForm((prev) => ({
+                          ...prev,
+                          fondoCantidad: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+                    <div className="rounded-xl border border-white/10 bg-[var(--surface)] p-3">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                        Antes
+                      </p>
+                      <div className="mt-2 space-y-1 text-xs text-zinc-300">
+                        <div>
+                          Diferencia:{" "}
+                          <span className={corte.diferencia < 0 ? "text-red-400" : corte.diferencia > 0 ? "text-emerald-400" : "text-zinc-200"}>
+                            {formatSignedCurrency(corte.diferencia)}
+                          </span>
+                        </div>
+                        <div>Pico: {formatSignedCurrency(corte.pico)}</div>
+                        <div>
+                          Corte teorico: {formatCurrency(corte.corteTeorico)}
+                        </div>
+                        <div>Corte real: {formatCurrency(corte.corteReal)}</div>
+                        <div>
+                          Depositado: {formatCurrency(corte.depositado)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-[var(--surface)] p-3">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                        Nuevo
+                      </p>
+                      <div className="mt-2 space-y-1 text-xs text-zinc-300">
+                        <div>
+                          Diferencia:{" "}
+                          {nuevaDiferencia === null ? (
+                            "--"
+                          ) : (
+                            <span
+                              className={
+                                nuevaDiferencia < 0
+                                  ? "text-red-400"
+                                  : nuevaDiferencia > 0
+                                  ? "text-emerald-400"
+                                  : "text-zinc-200"
+                              }
+                            >
+                              {formatSignedCurrency(nuevaDiferencia)}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          Pico:{" "}
+                          {nuevoPico === null
+                            ? "--"
+                            : formatSignedCurrency(nuevoPico)}
+                        </div>
+                        <div>
+                          Corte teorico:{" "}
+                          {ajusteCompleto
+                            ? formatCurrency(ajusteTeorico)
+                            : "--"}
+                        </div>
+                        <div>
+                          Corte real:{" "}
+                          {ajusteCompleto ? formatCurrency(ajusteReal) : "--"}
+                        </div>
+                        <div>
+                          Depositado:{" "}
+                          {ajusteCompleto
+                            ? formatCurrency(ajusteDepositado)
+                            : "--"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <label className="text-xs text-zinc-400 sm:col-span-2">
+                    Nota de validacion
+                    <textarea
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#0f3d36]"
+                      rows={2}
+                      value={ajusteNote}
+                      onChange={(event) => setAjusteNote(event.target.value)}
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                    <button
+                      className="rounded-full bg-[#0f3d36] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0b2a24] disabled:opacity-70"
+                      type="button"
+                      onClick={saveAjuste}
+                      disabled={savingAjuste}
+                    >
+                      {savingAjuste ? "Guardando..." : "Guardar ajuste"}
+                    </button>
+                    <button
+                      className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200"
+                      type="button"
+                      onClick={cancelAjuste}
+                      disabled={savingAjuste}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {ajustes.length > 0 ? (
+                <div className="mt-4 space-y-2 border-t border-white/10 pt-3">
+                  {ajustes.map((ajuste) => (
+                    <div key={ajuste._id} className="text-xs text-zinc-400">
+                      <span className="font-semibold text-zinc-200">
+                        Ajuste
+                      </span>{" "}
+                      {ajuste.adjustedBy ? `por ${ajuste.adjustedBy}` : ""} ·{" "}
+                      {new Date(ajuste.createdAt).toLocaleString()}
+                      {ajuste.adjustmentNote
+                        ? ` · ${ajuste.adjustmentNote}`
+                        : ""}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      </>
+    );
   };
 
   const handleCreateTool = async () => {
@@ -567,7 +1278,7 @@ export default function DashboardPage() {
             </p>
             <h1 className="text-3xl font-semibold">Hola, {username}</h1>
             <p className="text-sm text-zinc-400">
-              Rol actual: {role === "desconocido" ? "sin registro" : role}
+              Rol actual: {roleLabel}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -592,15 +1303,15 @@ export default function DashboardPage() {
           <div className="mt-8 rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8">
             <h2 className="text-xl font-semibold">Usuario sin registro</h2>
             <p className="mt-2 text-sm text-zinc-400">
-              Solicita al administrador que cree tu usuario.
+              Solicita al super root que cree tu usuario.
             </p>
           </div>
         ) : null}
 
-        {role === "admin" ? (
+        {role === "super-root" ? (
           <section className="mt-10">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold">Panel administrativo</h2>
+              <h2 className="text-xl font-semibold">Panel super root</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
@@ -844,6 +1555,36 @@ export default function DashboardPage() {
                       </button>
                     </div>
                   </div>
+
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                      Asignar rol
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      <input
+                        className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                        placeholder="Usuario"
+                        value={roleUsername}
+                        onChange={(event) => setRoleUsername(event.target.value)}
+                      />
+                      <select
+                        className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                        value={roleValue}
+                        onChange={(event) => setRoleValue(event.target.value)}
+                      >
+                        <option value="usuario">Usuario</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button
+                        className="w-full rounded-2xl bg-[#7c1127] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5c0b1c] disabled:opacity-70"
+                        type="button"
+                        onClick={assignRole}
+                        disabled={savingRole}
+                      >
+                        {savingRole ? "Guardando..." : "Asignar rol"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -865,82 +1606,7 @@ export default function DashboardPage() {
                 }
               >
                 <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.45)]">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold">Cortes de usuarios</h2>
-                    <p className="mt-1 text-sm text-zinc-400">
-                      Vista global de los ultimos cortes.
-                    </p>
-                  </div>
-                  <button
-                    className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
-                    type="button"
-                    onClick={loadAdminCortes}
-                  >
-                    Actualizar
-                  </button>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  {loadingCortes ? (
-                    <p className="text-sm text-zinc-400">Cargando cortes...</p>
-                  ) : null}
-                  {!loadingCortes && adminCortes.length === 0 ? (
-                    <p className="text-sm text-zinc-400">No hay cortes registrados.</p>
-                  ) : null}
-                  {adminCortes.map((corte) => (
-                    <div
-                      key={corte._id}
-                      className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-zinc-100">
-                            {corte.username || "Usuario"}
-                          </p>
-                          <p className="text-xs text-zinc-400">
-                            {new Date(corte.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <span
-                          className={`rounded-full bg-[var(--panel)] px-3 py-1 text-xs ${
-                            corte.diferencia < 0
-                              ? "text-red-400"
-                              : corte.diferencia > 0
-                              ? "text-emerald-400"
-                              : "text-zinc-200"
-                          }`}
-                        >
-                          Diferencia {formatSignedCurrency(corte.diferencia)}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
-                        <div>Caja: {corte.caja || "Sin caja"}</div>
-                        <div>Corte teorico: {formatCurrency(corte.corteTeorico)}</div>
-                        <div>Corte real: {formatCurrency(corte.corteReal)}</div>
-                        <div>Depositado: {formatCurrency(corte.depositado)}</div>
-                        <div>Pico: {formatSignedCurrency(corte.pico)}</div>
-                        <div>
-                          Fondo:{" "}
-                          {corte.fondoValidado
-                            ? corte.fondoCantidad !== undefined
-                              ? formatCurrency(corte.fondoCantidad)
-                              : "Validado"
-                            : "No validado"}
-                        </div>
-                        <div>
-                          Pendientes:{" "}
-                          {corte.pendientes?.length
-                            ? `${corte.pendientes.filter((t) => t.done).length}/${
-                                corte.pendientes.length
-                              }`
-                            : "0"}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                  {renderCortesBody(false)}
                 </div>
               </div>
 
@@ -964,7 +1630,7 @@ export default function DashboardPage() {
                   dragAdminKey === "admin-access" ? "opacity-60" : ""
                 }`}
               >
-                <h2 className="text-xl font-semibold">Accesos admin</h2>
+                <h2 className="text-xl font-semibold">Accesos super root</h2>
                 <p className="mt-1 text-sm text-zinc-400">
                   Accesos directos a gestores internos.
                 </p>
@@ -1102,11 +1768,19 @@ export default function DashboardPage() {
           </section>
         ) : null}
 
+        {role === "admin" ? (
+          <section className="mt-10">
+            <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.45)]">
+              {renderCortesBody(true)}
+            </div>
+          </section>
+        ) : null}
+
         {role === "usuario" ? (
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Herramientas disponibles</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Botones habilitados por el admin.
+              Botones habilitados por el super root.
             </p>
             <div className={`mt-6 grid gap-4 ${gridClass}`}>
               {userVisibleTools.length === 0 ? (

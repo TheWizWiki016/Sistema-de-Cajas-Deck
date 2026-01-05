@@ -133,7 +133,7 @@ function isDuplicateError(error: unknown) {
   return typeof error === "object" && error !== null && (error as any).code === 11000;
 }
 
-async function requireAdmin() {
+async function requireSuperRoot() {
   const cookieStore = await cookies();
   const username = cookieStore.get("deck_user")?.value;
 
@@ -151,7 +151,7 @@ async function requireAdmin() {
   );
   const role = user?.role ? decryptString(user.role) : "";
 
-  if (role !== "admin") {
+  if (role !== "super-root") {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
@@ -159,9 +159,9 @@ async function requireAdmin() {
 }
 
 export async function GET() {
-  const adminResponse = await requireAdmin();
-  if (adminResponse) {
-    return adminResponse;
+  const authResponse = await requireSuperRoot();
+  if (authResponse) {
+    return authResponse;
   }
 
   const db = await getDb();
@@ -185,9 +185,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const adminResponse = await requireAdmin();
-  if (adminResponse) {
-    return adminResponse;
+  const authResponse = await requireSuperRoot();
+  if (authResponse) {
+    return authResponse;
   }
 
   const body = await request.json();

@@ -14,7 +14,7 @@ function generateSalt() {
   return crypto.randomBytes(16).toString("hex");
 }
 
-async function requireAdmin(db: any) {
+async function requireSuperRoot(db: any) {
   const cookieStore = await cookies();
   const username = cookieStore.get("deck_user")?.value;
   if (!username) {
@@ -26,7 +26,7 @@ async function requireAdmin(db: any) {
     { projection: { role: 1 } }
   );
   const role = admin?.role ? decryptString(admin.role) : "";
-  if (role !== "admin") {
+  if (role !== "super-root") {
     return { ok: false, response: NextResponse.json({ message: "No autorizado." }, { status: 403 }) };
   }
 
@@ -46,9 +46,9 @@ export async function POST(request: Request) {
   }
 
   const db = await getDb();
-  const adminCheck = await requireAdmin(db);
-  if (!adminCheck.ok) {
-    return adminCheck.response!;
+  const authCheck = await requireSuperRoot(db);
+  if (!authCheck.ok) {
+    return authCheck.response!;
   }
 
   const existing = await db.collection("users").findOne(
@@ -101,9 +101,9 @@ export async function PUT(request: Request) {
   }
 
   const db = await getDb();
-  const adminCheck = await requireAdmin(db);
-  if (!adminCheck.ok) {
-    return adminCheck.response!;
+  const authCheck = await requireSuperRoot(db);
+  if (!authCheck.ok) {
+    return authCheck.response!;
   }
 
   const user = await db.collection("users").findOne(
@@ -136,6 +136,64 @@ export async function PUT(request: Request) {
   }
 
   await db.collection("users").updateOne({ _id: user._id }, updateDoc);
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(request: Request) {
+  const body = await request.json();
+  const username = typeof body?.username === "string" ? body.username.trim() : "";
+  const role = typeof body?.role === "string" ? body.role.trim() : "";
+
+  if (!username) {
+    return NextResponse.json(
+      { ok: false, message: "Usuario requerido." },
+      { status: 400 }
+    );
+  }
+
+  if (role !== "usuario" && role !== "admin") {
+    return NextResponse.json(
+      { ok: false, message: "Rol invalido." },
+      { status: 400 }
+    );
+  }
+
+  const db = await getDb();
+  const authCheck = await requireSuperRoot(db);
+  if (!authCheck.ok) {
+    return authCheck.response!;
+  }
+
+  const user = await db.collection("users").findOne(
+    { usernameHash: hashForSearch(username) },
+    { projection: { _id: 1, role: 1 } }
+  );
+  if (!user) {
+    return NextResponse.json(
+      { ok: false, message: "Usuario no encontrado." },
+      { status: 404 }
+    );
+  }
+
+  const currentRole = user?.role ? decryptString(user.role) : "";
+  if (currentRole === "super-root") {
+    return NextResponse.json(
+      { ok: false, message: "No se puede cambiar el super root." },
+      { status: 403 }
+    );
+  }
+
+  await db.collection("users").updateOne(
+    { _id: user._id },
+    {
+      $set: {
+        role: encryptString(role),
+        roleHash: hashForSearch(role),
+        updatedAt: new Date(),
+      },
+    }
+  );
 
   return NextResponse.json({ ok: true });
 }

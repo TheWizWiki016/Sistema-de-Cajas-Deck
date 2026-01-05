@@ -171,12 +171,12 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const wantsAll = url.searchParams.get("all") === "1";
 
-  if (wantsAll && role !== "admin") {
+  if (wantsAll && role !== "super-root") {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
   const query =
-    wantsAll && role === "admin"
+    wantsAll && role === "super-root"
       ? {}
       : { usernameHash: hashForSearch(username) };
 

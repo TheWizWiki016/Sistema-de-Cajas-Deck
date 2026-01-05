@@ -55,7 +55,7 @@ type Context = {
   params: Promise<{ id: string }>;
 };
 
-async function requireAdmin() {
+async function requireSuperRoot() {
   const cookieStore = await cookies();
   const username = cookieStore.get("deck_user")?.value;
 
@@ -73,7 +73,7 @@ async function requireAdmin() {
   );
   const role = user?.role ? decryptString(user.role) : "";
 
-  if (role !== "admin") {
+  if (role !== "super-root") {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
@@ -81,9 +81,9 @@ async function requireAdmin() {
 }
 
 export async function PUT(request: NextRequest, { params }: Context) {
-  const adminResponse = await requireAdmin();
-  if (adminResponse) {
-    return adminResponse;
+  const authResponse = await requireSuperRoot();
+  if (authResponse) {
+    return authResponse;
   }
 
   const { id } = await params;
@@ -202,9 +202,9 @@ export async function PUT(request: NextRequest, { params }: Context) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: Context) {
-  const adminResponse = await requireAdmin();
-  if (adminResponse) {
-    return adminResponse;
+  const authResponse = await requireSuperRoot();
+  if (authResponse) {
+    return authResponse;
   }
 
   const { id } = await params;
