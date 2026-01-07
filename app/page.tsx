@@ -132,20 +132,6 @@ export default function Home() {
             <h1 className="text-4xl font-semibold leading-tight text-zinc-100 sm:text-5xl">
               StockPulse
             </h1>
-            <p className="text-base text-zinc-300 sm:text-lg">
-              Cortes, conteos e inventario en una sola vista.
-            </p>
-            <div className="flex flex-wrap gap-3 text-xs uppercase tracking-[0.22em] text-zinc-400">
-              <span className="rounded-full border border-white/10 bg-[var(--panel-80)] px-3 py-2">
-                Conteos guiados
-              </span>
-              <span className="rounded-full border border-white/10 bg-[var(--panel-80)] px-3 py-2">
-                Control de cajas
-              </span>
-              <span className="rounded-full border border-white/10 bg-[var(--panel-80)] px-3 py-2">
-                Familias activas
-              </span>
-            </div>
           </section>
 
           <section className="login-card rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.65)] backdrop-blur">

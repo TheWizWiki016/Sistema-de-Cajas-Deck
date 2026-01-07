@@ -838,6 +838,32 @@ export default function DashboardPage() {
                     : "0"}
                 </div>
               </div>
+              {corte.pendientes?.length ? (
+                <div className="mt-4 space-y-2 text-sm text-zinc-300">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                    Pendientes
+                  </p>
+                  <div className="space-y-2">
+                    {corte.pendientes.map((task, index) => (
+                      <div
+                        key={`${corte._id}-pendiente-${index}`}
+                        className="flex items-center justify-between rounded-2xl border border-white/10 bg-[var(--panel)] px-4 py-2"
+                      >
+                        <span
+                          className={
+                            task.done ? "text-emerald-400 line-through" : ""
+                          }
+                        >
+                          {task.text}
+                        </span>
+                        <span className="text-xs text-zinc-400">
+                          {task.done ? "Listo" : "Pendiente"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <button

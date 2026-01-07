@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema de Cajas Deck
 
-## Getting Started
+Dashboard y herramientas para cortes de caja, conteos e inventario, con roles y ajustes historicos.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 18+
+- MongoDB (URI accesible desde la app)
+
+## Configuracion
+
+Crea un archivo `.env.local` con estas variables:
+
+```bash
+MONGODB_URI="mongodb://localhost:27017"
+MONGODB_DB="sistema_cajas_deck"
+# 32 bytes en hex (64 chars) o base64
+DATA_ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+```
+
+Notas:
+- `DATA_ENCRYPTION_KEY` es obligatorio; se usa para cifrar datos sensibles.
+- Si cambias la clave, los datos ya guardados no se podran descifrar.
+
+## Instalacion
+
+```bash
+npm install
+```
+
+## Desarrollo
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Primer acceso (super-root)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+El super-root se crea una sola vez con el formulario de `/register`.
 
-## Learn More
+Pasos:
+1. Asegura que **no exista** super-root en la base.
+2. Entra a `http://localhost:3000/register`.
+3. Crea el usuario super-root.
+4. Luego `/register` quedara bloqueado automaticamente.
 
-To learn more about Next.js, take a look at the following resources:
+## Roles
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `super-root`: acceso completo. Puede asignar roles `usuario` y `admin`.
+- `admin`: ve y valida cortes; puede guardar sus propios cortes.
+- `usuario`: acceso regular a herramientas segun visibilidad.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Asignar roles:
+- En el dashboard (super-root), en la seccion "Usuarios" usa el bloque "Asignar rol".
 
-## Deploy on Vercel
+## Cortes y ajustes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Los cortes se guardan en `/tools/cortes` o desde el formulario admin en el dashboard.
+- Los ajustes de admin crean un nuevo registro (historial), el corte original se mantiene intacto.
+- Los usuarios ven los ajustes asociados a sus cortes en el historico.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Estructura rapida
+
+- `app/dashboard/page.tsx`: dashboard principal, cortes, ajustes y roles.
+- `app/tools/cortes/page.tsx`: formulario de cortes y historico por usuario.
+- `app/api/cortes/*`: endpoints de cortes y ajustes.
+- `app/api/users/*`: roles y gestion de usuarios.
+
+## Notas de despliegue
+
+- Verifica que `MONGODB_URI`, `MONGODB_DB` y `DATA_ENCRYPTION_KEY` esten configuradas en el entorno.
+- El formulario `/register` solo esta disponible si no existe super-root.
