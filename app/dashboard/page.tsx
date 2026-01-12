@@ -48,6 +48,19 @@ type Corte = {
   createdAt: string;
 };
 
+type ChangeRequest = {
+  _id: string;
+  itemId: string;
+  alfanumerico: string;
+  nombre?: string;
+  upc?: string;
+  issues: string[];
+  notes?: string;
+  status?: string;
+  username?: string;
+  createdAt: string;
+};
+
 type CortesResponse = {
   cortes: Corte[];
   message?: string;
@@ -70,6 +83,7 @@ const TOOL_ROUTES: Record<string, string> = {
   cortes: "/tools/cortes",
   articulos: "/tools/articulos",
   familias: "/tools/familias",
+  "conteo-de-cerveza": "/tools/conteo-de-cerveza",
 };
 
 const ADMIN_ONLY_TOOLS = new Set(["articulos", "familias"]);
@@ -114,6 +128,8 @@ export default function DashboardPage() {
   const [resetPassword, setResetPassword] = useState("");
   const [adminCortes, setAdminCortes] = useState<Corte[]>([]);
   const [loadingCortes, setLoadingCortes] = useState(false);
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+  const [loadingChangeRequests, setLoadingChangeRequests] = useState(false);
   const [editingCorteId, setEditingCorteId] = useState<string | null>(null);
   const [savingAjuste, setSavingAjuste] = useState(false);
   const [ajusteNote, setAjusteNote] = useState("");
@@ -194,6 +210,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (role === "admin" || role === "super-root") {
       loadAdminCortes();
+      loadChangeRequests();
     }
   }, [role]);
 
@@ -243,6 +260,7 @@ export default function DashboardPage() {
     "tools",
     "users",
     "cuts",
+    "change-requests",
     "admin-access",
     "user-view",
   ];
@@ -305,6 +323,7 @@ export default function DashboardPage() {
       { key: "tools", label: "Administrar herramientas" },
       { key: "users", label: "Usuarios" },
       { key: "cuts", label: "Cortes de usuarios" },
+      { key: "change-requests", label: "Solicitudes de cambio" },
       { key: "admin-access", label: "Accesos super root" },
       { key: "user-view", label: "Vista usuario" },
     ],
@@ -413,9 +432,18 @@ export default function DashboardPage() {
   };
 
   const { originalCortes, ajustesPorOriginal } = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(todayStart.getDate() - 1);
+
     const originals: Corte[] = [];
     const ajustes = new Map<string, Corte[]>();
     adminCortes.forEach((corte) => {
+      const createdAt = new Date(corte.createdAt);
+      if (Number.isNaN(createdAt.getTime()) || createdAt < yesterdayStart) {
+        return;
+      }
       if (corte.isAdjustment && corte.originalId) {
         const list = ajustes.get(corte.originalId) ?? [];
         list.push(corte);
@@ -651,7 +679,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="mt-4 grid gap-3 text-xs text-zinc-400 sm:grid-cols-2">
+          <div className="mt-2 grid gap-3 text-xs text-zinc-400 sm:grid-cols-2">
             <label>
               Caja
               <select
@@ -727,7 +755,7 @@ export default function DashboardPage() {
               />
             </label>
           </div>
-          <div className="mt-4 grid gap-3 text-xs text-zinc-300 sm:grid-cols-2">
+          <div className="mt-2 grid gap-3 text-xs text-zinc-300 sm:grid-cols-2">
             <div className="rounded-xl border border-white/10 bg-[var(--panel)] p-3">
               <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
                 Diferencia
@@ -753,7 +781,7 @@ export default function DashboardPage() {
         <div>
           <h2 className="text-xl font-semibold">Cortes de usuarios</h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Vista global de los ultimos cortes.
+            Vista de hoy y ayer.
           </p>
         </div>
         <button
@@ -765,7 +793,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-2 space-y-2">
         {loadingCortes ? (
           <p className="text-sm text-zinc-400">Cargando cortes...</p>
         ) : null}
@@ -791,9 +819,9 @@ export default function DashboardPage() {
           return (
             <div
               key={corte._id}
-              className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4"
+              className="rounded-2xl border border-white/10 bg-[var(--surface)] p-3"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold text-zinc-100">
                     {corte.username || "Usuario"}
@@ -815,7 +843,7 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
+              <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
                 <div>Caja: {corte.caja || "Sin caja"}</div>
                 <div>Corte teorico: {formatCurrency(corte.corteTeorico)}</div>
                 <div>Corte real: {formatCurrency(corte.corteReal)}</div>
@@ -839,7 +867,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               {corte.pendientes?.length ? (
-                <div className="mt-4 space-y-2 text-sm text-zinc-300">
+                <div className="mt-3 space-y-2 text-sm text-zinc-300">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                     Pendientes
                   </p>
@@ -847,7 +875,7 @@ export default function DashboardPage() {
                     {corte.pendientes.map((task, index) => (
                       <div
                         key={`${corte._id}-pendiente-${index}`}
-                        className="flex items-center justify-between rounded-2xl border border-white/10 bg-[var(--panel)] px-4 py-2"
+                        className="flex items-center justify-between rounded-2xl border border-white/10 bg-[var(--panel)] px-3 py-2"
                       >
                         <span
                           className={
@@ -865,7 +893,7 @@ export default function DashboardPage() {
                 </div>
               ) : null}
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   className="rounded-full border border-white/10 bg-[var(--panel)] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#0f3d36]"
                   type="button"
@@ -881,7 +909,7 @@ export default function DashboardPage() {
               </div>
 
               {isEditing ? (
-                <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-[var(--panel)] p-4 sm:grid-cols-2">
+                <div className="mt-3 grid gap-3 rounded-2xl border border-white/10 bg-[var(--panel)] p-3 sm:grid-cols-2">
                   <label className="text-xs text-zinc-400">
                     Caja
                     <input
@@ -1068,7 +1096,7 @@ export default function DashboardPage() {
               ) : null}
 
               {ajustes.length > 0 ? (
-                <div className="mt-4 space-y-2 border-t border-white/10 pt-3">
+                <div className="mt-2 space-y-2 border-t border-white/10 pt-3">
                   {ajustes.map((ajuste) => (
                     <div key={ajuste._id} className="text-xs text-zinc-400">
                       <span className="font-semibold text-zinc-200">
@@ -1269,6 +1297,23 @@ export default function DashboardPage() {
     }
   };
 
+  const loadChangeRequests = async () => {
+    setLoadingChangeRequests(true);
+    try {
+      const response = await fetch("/api/change-requests");
+      const data = (await response.json()) as { requests?: ChangeRequest[]; message?: string };
+      if (!response.ok) {
+        toast.error(data.message ?? "No se pudieron cargar los reportes.");
+        return;
+      }
+      setChangeRequests(data.requests ?? []);
+    } catch (error) {
+      toast.error("Error de red al cargar los reportes.");
+    } finally {
+      setLoadingChangeRequests(false);
+    }
+  };
+
   if (!username) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-transparent px-6">
@@ -1280,7 +1325,7 @@ export default function DashboardPage() {
             Inicia sesion para ver tu dashboard.
           </p>
           <a
-            className="mt-6 inline-flex rounded-full bg-[#7c1127] px-4 py-2 text-sm font-semibold text-white"
+            className="mt-3 inline-flex rounded-full bg-[#7c1127] px-4 py-2 text-sm font-semibold text-white"
             href="/"
           >
             Ir al login
@@ -1322,11 +1367,11 @@ export default function DashboardPage() {
         </header>
 
         {loading ? (
-          <div className="mt-10 text-sm text-zinc-400">Cargando herramientas...</div>
+          <div className="mt-4 text-sm text-zinc-400">Cargando herramientas...</div>
         ) : null}
 
         {role === "desconocido" ? (
-          <div className="mt-8 rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8">
+          <div className="mt-4 rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6">
             <h2 className="text-xl font-semibold">Usuario sin registro</h2>
             <p className="mt-2 text-sm text-zinc-400">
               Solicita al super root que cree tu usuario.
@@ -1335,7 +1380,7 @@ export default function DashboardPage() {
         ) : null}
 
         {role === "super-root" ? (
-          <section className="mt-10">
+          <section className="mt-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold">Panel super root</h2>
               <div className="flex flex-wrap items-center gap-2">
@@ -1359,7 +1404,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-8">
+            <div className="mt-3 flex flex-wrap gap-4">
               <div
                 className={`w-full lg:w-[calc(50%-1rem)] ${
                   editingAdminOrder ? "cursor-move" : ""
@@ -1385,7 +1430,7 @@ export default function DashboardPage() {
                   Crea, edita o elimina botones del dashboard.
                 </p>
 
-                <div className="mt-6 space-y-4 rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
+                <div className="mt-3 space-y-2 rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                       Nueva herramienta
@@ -1412,7 +1457,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <div className="mt-6 space-y-4">
+                <div className="mt-3 space-y-2">
                   {tools.length === 0 ? (
                     <p className="text-sm text-zinc-400">No hay herramientas creadas.</p>
                   ) : null}
@@ -1525,7 +1570,7 @@ export default function DashboardPage() {
                   Crea usuarios y restablece contrasenas.
                 </p>
 
-                <div className="mt-6 grid gap-4">
+                <div className="mt-3 grid gap-3">
                   <div className="rounded-2xl border border-dashed border-white/10 bg-[var(--surface-70)] p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                       Nuevo usuario
@@ -1640,6 +1685,83 @@ export default function DashboardPage() {
               className={`w-full lg:w-[calc(50%-1rem)] ${
                 editingAdminOrder ? "cursor-move" : ""
               }`}
+              style={{ order: adminOrderIndex("change-requests") }}
+              draggable={editingAdminOrder}
+              onDragStart={() => setDragAdminKey("change-requests")}
+              onDragEnd={() => setDragAdminKey(null)}
+              onDragOver={(event) =>
+                editingAdminOrder ? event.preventDefault() : undefined
+              }
+              onDrop={() =>
+                editingAdminOrder ? handleAdminDrop("change-requests") : undefined
+              }
+            >
+              <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.55)]">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold">Solicitudes de cambio</h2>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      Reportes enviados por usuarios.
+                    </p>
+                  </div>
+                  <button
+                    className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200 hover:border-[#0f3d36]"
+                    type="button"
+                    onClick={loadChangeRequests}
+                  >
+                    Actualizar
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {loadingChangeRequests ? (
+                    <p className="text-sm text-zinc-400">Cargando reportes...</p>
+                  ) : null}
+                  {!loadingChangeRequests && changeRequests.length === 0 ? (
+                    <p className="text-sm text-zinc-400">
+                      No hay solicitudes pendientes.
+                    </p>
+                  ) : null}
+                  {changeRequests.map((request) => (
+                    <div
+                      key={request._id}
+                      className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-100">
+                            {request.nombre || request.alfanumerico}
+                          </p>
+                          <p className="text-xs text-zinc-400">
+                            {request.alfanumerico}
+                            {request.upc ? ` - UPC ${request.upc}` : ""}
+                          </p>
+                          <p className="mt-2 text-xs text-zinc-500">
+                            {request.issues?.length
+                              ? request.issues.join(", ")
+                              : "Sin motivos"}
+                          </p>
+                          {request.notes ? (
+                            <p className="mt-2 text-xs text-zinc-400">
+                              {request.notes}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="text-xs text-zinc-400">
+                          <p>{request.username ?? "Usuario"}</p>
+                          <p>{new Date(request.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`w-full lg:w-[calc(50%-1rem)] ${
+                editingAdminOrder ? "cursor-move" : ""
+              }`}
               style={{ order: adminOrderIndex("admin-access") }}
               draggable={editingAdminOrder}
               onDragStart={() => setDragAdminKey("admin-access")}
@@ -1660,7 +1782,7 @@ export default function DashboardPage() {
                 <p className="mt-1 text-sm text-zinc-400">
                   Accesos directos a gestores internos.
                 </p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <a
                     className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
                     href="/tools/articulos"
@@ -1733,7 +1855,7 @@ export default function DashboardPage() {
                 <p className="mt-1 text-sm text-zinc-400">
                   Estos son los botones que vera un usuario regular.
                 </p>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <button
                     className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
                     type="button"
@@ -1752,12 +1874,12 @@ export default function DashboardPage() {
                     </button>
                   ) : null}
                 </div>
-                <div className={`mt-6 grid gap-4 ${gridClass}`}>
+                <div className={`mt-3 grid gap-3 ${gridClass}`}>
                   {userVisibleTools.length === 0 ? (
                     <p className="text-sm text-zinc-400">No hay botones visibles.</p>
                   ) : null}
                   {userVisibleTools.map((tool) => {
-                    const href = TOOL_ROUTES[tool.key];
+                    const href = TOOL_ROUTES[tool.key] ?? `/tools/${tool.key}`;
                     const Component = href ? "a" : "button";
                     const isDragging = dragKey === tool.key;
                     return (
@@ -1795,7 +1917,7 @@ export default function DashboardPage() {
         ) : null}
 
         {role === "admin" ? (
-          <section className="mt-10">
+          <section className="mt-4">
             <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.45)]">
               {renderCortesBody(true)}
             </div>
@@ -1803,17 +1925,17 @@ export default function DashboardPage() {
         ) : null}
 
         {role === "usuario" ? (
-          <section className="mt-10">
+          <section className="mt-4">
             <h2 className="text-xl font-semibold">Herramientas disponibles</h2>
             <p className="mt-1 text-sm text-zinc-400">
               Botones habilitados por el super root.
             </p>
-            <div className={`mt-6 grid gap-4 ${gridClass}`}>
+            <div className={`mt-3 grid gap-3 ${gridClass}`}>
               {userVisibleTools.length === 0 ? (
                 <p className="text-sm text-zinc-400">No hay herramientas activas.</p>
               ) : null}
               {userVisibleTools.map((tool) => {
-                const href = TOOL_ROUTES[tool.key];
+                const href = TOOL_ROUTES[tool.key] ?? `/tools/${tool.key}`;
                 const Component = href ? "a" : "button";
                 return (
                   <Component

@@ -61,6 +61,20 @@ export async function POST() {
     await db.createCollection("inventory_counts");
   }
 
+  const beerCountsExisting = await db
+    .listCollections({ name: "beer_counts" })
+    .toArray();
+  if (beerCountsExisting.length === 0) {
+    await db.createCollection("beer_counts");
+  }
+
+  const changeRequestsExisting = await db
+    .listCollections({ name: "change_requests" })
+    .toArray();
+  if (changeRequestsExisting.length === 0) {
+    await db.createCollection("change_requests");
+  }
+
   const familiesExisting = await db
     .listCollections({ name: "families" })
     .toArray();
@@ -93,6 +107,12 @@ export async function POST() {
   await db.collection("inventory_counts").createIndex({ createdAt: -1 });
   await db.collection("inventory_counts").createIndex({ usernameHash: 1 });
   await db.collection("inventory_counts").createIndex({ familyHash: 1 });
+  await db.collection("beer_counts").createIndex({ createdAt: -1 });
+  await db.collection("beer_counts").createIndex({ usernameHash: 1 });
+  await db.collection("beer_counts").createIndex({ ticketFolioHash: 1 });
+  await db.collection("change_requests").createIndex({ createdAt: -1 });
+  await db.collection("change_requests").createIndex({ usernameHash: 1 });
+  await db.collection("change_requests").createIndex({ status: 1 });
   await db.collection("settings").createIndex({ key: 1 }, { unique: true });
 
   const toolsCount = await db.collection("tools").countDocuments();

@@ -51,6 +51,8 @@ type NormalizedItem = {
   familias: string[];
   alfanumerico: string;
   codigoBarras?: string;
+  upc?: string;
+  cantidadPorCaja?: string | null;
   precio: string | null;
   nombreHash?: string;
   alfanumericoHash: string;
@@ -78,8 +80,12 @@ function normalizeItem(
       : typeof input?.codigo_barras === "string"
       ? input.codigo_barras.trim()
       : "";
+  const upcRaw = typeof input?.upc === "string" ? input.upc.trim() : "";
+  const cantidadPorCajaRaw =
+    input?.cantidadPorCaja ?? input?.cantidad_por_caja ?? null;
   const rawPrice = input?.precio;
   let precio: number | null = null;
+  let cantidadPorCaja: number | null = null;
 
   if (!alfanumerico) {
     return { ok: false, message: "El codigo alfanumerico es obligatorio." };
@@ -95,6 +101,17 @@ function normalizeItem(
       return { ok: false, message: "El precio es obligatorio." };
     }
     precio = parsed;
+  }
+  if (
+    cantidadPorCajaRaw !== null &&
+    cantidadPorCajaRaw !== undefined &&
+    cantidadPorCajaRaw !== ""
+  ) {
+    const parsed = Number(cantidadPorCajaRaw);
+    if (Number.isNaN(parsed)) {
+      return { ok: false, message: "Cantidad por caja invalida." };
+    }
+    cantidadPorCaja = parsed;
   }
 
   const now = new Date();
@@ -117,6 +134,12 @@ function normalizeItem(
   if (codigoBarrasRaw) {
     item.codigoBarras = encryptString(codigoBarrasRaw);
     item.codigoBarrasHash = hashForSearch(codigoBarrasRaw);
+  }
+  if (upcRaw) {
+    item.upc = encryptString(upcRaw);
+  }
+  if (cantidadPorCaja !== null) {
+    item.cantidadPorCaja = encryptNumber(cantidadPorCaja);
   }
 
   if (nombre) {
@@ -177,6 +200,8 @@ export async function GET() {
     familias: decryptStringArray(articulo.familias),
     alfanumerico: decryptString(articulo.alfanumerico),
     codigoBarras: decryptString(articulo.codigoBarras),
+    upc: decryptString(articulo.upc),
+    cantidadPorCaja: decryptNumber(articulo.cantidadPorCaja),
     precio: decryptNumber(articulo.precio),
     createdAt: articulo.createdAt,
   }));
@@ -244,6 +269,8 @@ export async function POST(request: NextRequest) {
         codigoBarras: normalized.item.codigoBarras
           ? decryptString(normalized.item.codigoBarras)
           : "",
+        upc: normalized.item.upc ? decryptString(normalized.item.upc) : "",
+        cantidadPorCaja: decryptNumber(normalized.item.cantidadPorCaja),
         precio: decryptNumber(normalized.item.precio),
         _id: result.insertedId.toString(),
       },

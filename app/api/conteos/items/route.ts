@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/mongodb";
-import { decryptString, decryptStringArray, hashForSearch } from "@/lib/crypto";
+import {
+  decryptNumber,
+  decryptString,
+  decryptStringArray,
+  hashForSearch,
+} from "@/lib/crypto";
 
 const COLLECTION_NAME = "store_items";
 
@@ -47,6 +52,8 @@ export async function GET() {
     nombre: decryptString(item.nombre),
     alfanumerico: decryptString(item.alfanumerico),
     codigoBarras: decryptString(item.codigoBarras),
+    upc: decryptString(item.upc),
+    cantidadPorCaja: decryptNumber(item.cantidadPorCaja),
     familias: decryptStringArray(item.familias),
   }));
 

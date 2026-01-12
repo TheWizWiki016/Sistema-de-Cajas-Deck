@@ -101,8 +101,12 @@ export async function PUT(request: NextRequest, { params }: Context) {
       : typeof body?.codigo_barras === "string"
       ? body.codigo_barras.trim()
       : "";
+  const upcRaw = typeof body?.upc === "string" ? body.upc.trim() : "";
+  const cantidadPorCajaRaw =
+    body?.cantidadPorCaja ?? body?.cantidad_por_caja ?? null;
   const rawPrice = body?.precio;
   let precio: number | null = null;
+  let cantidadPorCaja: number | null = null;
 
   if (!alfanumerico) {
     return NextResponse.json(
@@ -120,6 +124,20 @@ export async function PUT(request: NextRequest, { params }: Context) {
       );
     }
     precio = parsed;
+  }
+  if (
+    cantidadPorCajaRaw !== null &&
+    cantidadPorCajaRaw !== undefined &&
+    cantidadPorCajaRaw !== ""
+  ) {
+    const parsed = Number(cantidadPorCajaRaw);
+    if (Number.isNaN(parsed)) {
+      return NextResponse.json(
+        { message: "Cantidad por caja invalida." },
+        { status: 400 }
+      );
+    }
+    cantidadPorCaja = parsed;
   }
 
   const db = await getDb();
@@ -155,6 +173,16 @@ export async function PUT(request: NextRequest, { params }: Context) {
   } else {
     updateDoc.$unset = { codigoBarras: "", codigoBarrasHash: "" };
   }
+  if (upcRaw) {
+    updateDoc.$set.upc = encryptString(upcRaw);
+  } else {
+    updateDoc.$unset = { ...(updateDoc.$unset ?? {}), upc: "" };
+  }
+  if (cantidadPorCaja !== null) {
+    updateDoc.$set.cantidadPorCaja = encryptNumber(cantidadPorCaja);
+  } else {
+    updateDoc.$unset = { ...(updateDoc.$unset ?? {}), cantidadPorCaja: "" };
+  }
 
   try {
     const result = await db.collection(COLLECTION_NAME).findOneAndUpdate(
@@ -177,6 +205,8 @@ export async function PUT(request: NextRequest, { params }: Context) {
         familias: decryptStringArray(result.value.familias),
         alfanumerico: decryptString(result.value.alfanumerico),
         codigoBarras: decryptString(result.value.codigoBarras),
+        upc: decryptString(result.value.upc),
+        cantidadPorCaja: decryptNumber(result.value.cantidadPorCaja),
         precio: decryptNumber(result.value.precio),
       },
     });

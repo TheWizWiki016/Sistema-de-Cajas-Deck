@@ -9,6 +9,8 @@ type Articulo = {
   familias: string[];
   alfanumerico: string;
   codigoBarras?: string;
+  upc?: string;
+  cantidadPorCaja?: number | null;
   precio: number | null;
   createdAt: string;
 };
@@ -28,6 +30,8 @@ export default function ArticulosPage() {
   const [nombre, setNombre] = useState("");
   const [alfanumerico, setAlfanumerico] = useState("");
   const [codigoBarras, setCodigoBarras] = useState("");
+  const [upc, setUpc] = useState("");
+  const [cantidadPorCaja, setCantidadPorCaja] = useState("");
   const [precio, setPrecio] = useState("");
   const [familia, setFamilia] = useState("");
   const [saving, setSaving] = useState(false);
@@ -41,6 +45,8 @@ export default function ArticulosPage() {
   const [editNombre, setEditNombre] = useState("");
   const [editAlfanumerico, setEditAlfanumerico] = useState("");
   const [editCodigoBarras, setEditCodigoBarras] = useState("");
+  const [editUpc, setEditUpc] = useState("");
+  const [editCantidadPorCaja, setEditCantidadPorCaja] = useState("");
   const [editPrecio, setEditPrecio] = useState("");
   const [editFamilia, setEditFamilia] = useState("");
 
@@ -80,10 +86,20 @@ export default function ArticulosPage() {
     loadFamilias();
   }, []);
 
+  const isCerveza = (code: string, selectedFamily: string) => {
+    const normalized = code.trim().toUpperCase();
+    if (normalized.startsWith("CE")) {
+      return true;
+    }
+    return selectedFamily.trim().toLowerCase() === "cerveza";
+  };
+
   const resetForm = () => {
     setNombre("");
     setAlfanumerico("");
     setCodigoBarras("");
+    setUpc("");
+    setCantidadPorCaja("");
     setPrecio("");
     setFamilia("");
   };
@@ -101,18 +117,32 @@ export default function ArticulosPage() {
       return;
     }
 
+    const cerveza = isCerveza(alfanumerico, familia);
+    const cajaValue =
+      cantidadPorCaja.trim() === "" ? null : Number(cantidadPorCaja);
+    if (cerveza && cajaValue !== null && Number.isNaN(cajaValue)) {
+      toast.error("La cantidad por caja debe ser un numero valido.");
+      return;
+    }
+
     setSaving(true);
     try {
+      const payload: Record<string, unknown> = {
+        nombre,
+        alfanumerico,
+        codigoBarras,
+        precio: Number(precio),
+        familias: familia ? [familia] : [],
+      };
+      if (cerveza) {
+        payload.upc = upc;
+        payload.cantidadPorCaja = cajaValue;
+      }
+
       const response = await fetch("/api/articulos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre,
-          alfanumerico,
-          codigoBarras,
-          precio: Number(precio),
-          familias: familia ? [familia] : [],
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = (await response.json()) as {
@@ -184,6 +214,12 @@ export default function ArticulosPage() {
     setEditNombre(articulo.nombre ?? "");
     setEditAlfanumerico(articulo.alfanumerico ?? "");
     setEditCodigoBarras(articulo.codigoBarras ?? "");
+    setEditUpc(articulo.upc ?? "");
+    setEditCantidadPorCaja(
+      articulo.cantidadPorCaja === null || articulo.cantidadPorCaja === undefined
+        ? ""
+        : articulo.cantidadPorCaja.toString()
+    );
     setEditPrecio(
       articulo.precio === null || articulo.precio === undefined
         ? ""
@@ -197,6 +233,8 @@ export default function ArticulosPage() {
     setEditNombre("");
     setEditAlfanumerico("");
     setEditCodigoBarras("");
+    setEditUpc("");
+    setEditCantidadPorCaja("");
     setEditPrecio("");
     setEditFamilia("");
   };
@@ -211,16 +249,30 @@ export default function ArticulosPage() {
       return;
     }
 
+    const cerveza = isCerveza(editAlfanumerico, editFamilia);
+    const cajaValue =
+      editCantidadPorCaja.trim() === "" ? null : Number(editCantidadPorCaja);
+    if (cerveza && cajaValue !== null && Number.isNaN(cajaValue)) {
+      toast.error("La cantidad por caja debe ser un numero valido.");
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      nombre: editNombre,
+      alfanumerico: editAlfanumerico,
+      codigoBarras: editCodigoBarras,
+      precio: editPrecio.trim() === "" ? null : Number(editPrecio),
+      familias: editFamilia ? [editFamilia] : [],
+    };
+    if (cerveza) {
+      payload.upc = editUpc;
+      payload.cantidadPorCaja = cajaValue;
+    }
+
     const response = await fetch(`/api/articulos/${editingId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nombre: editNombre,
-        alfanumerico: editAlfanumerico,
-        codigoBarras: editCodigoBarras,
-        precio: editPrecio.trim() === "" ? null : Number(editPrecio),
-        familias: editFamilia ? [editFamilia] : [],
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = (await response.json()) as { articulo?: Articulo; message?: string };
@@ -339,6 +391,33 @@ export default function ArticulosPage() {
                   onChange={(event) => setCodigoBarras(event.target.value)}
                 />
               </label>
+              {isCerveza(alfanumerico, familia) ? (
+                <>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-zinc-300">UPC</span>
+                    <input
+                      className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                      placeholder="Ej. 75026967"
+                      value={upc}
+                      onChange={(event) => setUpc(event.target.value)}
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-zinc-300">
+                      Cantidad por caja
+                    </span>
+                    <input
+                      className="w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder="0"
+                      value={cantidadPorCaja}
+                      onChange={(event) => setCantidadPorCaja(event.target.value)}
+                    />
+                  </label>
+                </>
+              ) : null}
               <label className="space-y-2">
                 <span className="text-sm font-medium text-zinc-300">Precio</span>
                 <input
@@ -366,12 +445,13 @@ export default function ArticulosPage() {
               </h3>
               <p className="mt-1 text-xs text-zinc-400">
                 Pega un arreglo JSON con objetos que incluyan nombre,
-                alfanumerico y codigo_barras o codigoBarras. La familia se
+                alfanumerico y codigo_barras o codigoBarras. Para cerveza (CE)
+                tambien puedes incluir upc y cantidadPorCaja. La familia se
                 deriva del alfanumerico.
               </p>
               <textarea
                 className="mt-3 min-h-[140px] w-full rounded-2xl border border-white/10 bg-[var(--surface)] px-3 py-2 text-xs text-zinc-100 outline-none focus:border-[#7c1127]"
-                placeholder='[{"nombre":"Marlboro Velvet","alfanumerico":"TA1010172","codigo_barras":"75068765","precio":12.5}]'
+                placeholder='[{"nombre":"Marlboro Velvet","alfanumerico":"TA1010172","codigo_barras":"75068765","precio":12.5},{"nombre":"Cerveza Victoria Botella 210 ml","alfanumerico":"CE1010001","upc":"75026967","cantidadPorCaja":24}]'
                 value={bulkJson}
                 onChange={(event) => setBulkJson(event.target.value)}
               />
@@ -438,6 +518,27 @@ export default function ArticulosPage() {
                         onChange={(event) => setEditCodigoBarras(event.target.value)}
                         placeholder="Codigo de barras"
                       />
+                      {isCerveza(editAlfanumerico, editFamilia) ? (
+                        <>
+                          <input
+                            className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
+                            value={editUpc}
+                            onChange={(event) => setEditUpc(event.target.value)}
+                            placeholder="UPC"
+                          />
+                          <input
+                            className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
+                            type="number"
+                            step="1"
+                            min="0"
+                            value={editCantidadPorCaja}
+                            onChange={(event) =>
+                              setEditCantidadPorCaja(event.target.value)
+                            }
+                            placeholder="Cantidad por caja"
+                          />
+                        </>
+                      ) : null}
                       <select
                         className="w-full rounded-xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100"
                         value={editFamilia}
@@ -488,6 +589,8 @@ export default function ArticulosPage() {
                             {articulo.codigoBarras
                               ? `Codigo de barras: ${articulo.codigoBarras}`
                               : "Sin codigo de barras"}
+                            {articulo.upc ? " Жњ " : ""}
+                            {articulo.upc ? `UPC: ${articulo.upc}` : ""}
                           </p>
                         </div>
                         <span className="rounded-full bg-[var(--panel)] px-3 py-1 text-xs text-zinc-400">
@@ -496,6 +599,12 @@ export default function ArticulosPage() {
                             : `$${articulo.precio.toFixed(2)}`}
                         </span>
                       </div>
+                      {articulo.cantidadPorCaja !== null &&
+                      articulo.cantidadPorCaja !== undefined ? (
+                        <p className="text-xs text-zinc-400">
+                          Cantidad por caja: {articulo.cantidadPorCaja}
+                        </p>
+                      ) : null}
                       <div className="flex flex-wrap gap-2">
                         {(articulo.familias ?? []).length === 0 ? (
                           <span className="text-xs text-zinc-500">
