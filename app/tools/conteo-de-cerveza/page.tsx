@@ -94,6 +94,7 @@ export default function ConteoDeCervezaPage() {
   const [changeModalOpen, setChangeModalOpen] = useState(false);
   const [changeNotes, setChangeNotes] = useState("");
   const [changeIssues, setChangeIssues] = useState<Record<string, boolean>>({});
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const loadItems = async () => {
@@ -114,6 +115,24 @@ export default function ConteoDeCervezaPage() {
       }
     };
     loadItems();
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const handleChange = () => setIsMobile(media.matches);
+    handleChange();
+    if (media.addEventListener) {
+      media.addEventListener("change", handleChange);
+    } else {
+      media.addListener(handleChange);
+    }
+    return () => {
+      if (media.removeEventListener) {
+        media.removeEventListener("change", handleChange);
+      } else {
+        media.removeListener(handleChange);
+      }
+    };
   }, []);
 
   const cervezaItems = useMemo(() => {
@@ -168,11 +187,16 @@ export default function ConteoDeCervezaPage() {
       setBoxCounts((prev) => ({ ...prev, [id]: 0 }));
       return;
     }
-    const parsed = Number(value);
-    if (Number.isNaN(parsed) || parsed < 0) {
+    const pieces = value
+      .split("+")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => Number(part));
+    if (pieces.length === 0 || pieces.some((num) => Number.isNaN(num) || num < 0)) {
       return;
     }
-    setBoxCounts((prev) => ({ ...prev, [id]: parsed }));
+    const total = pieces.reduce((sum, num) => sum + num, 0);
+    setBoxCounts((prev) => ({ ...prev, [id]: total }));
   };
 
   const updateTheoreticalUnits = (id: string, value: string) => {
@@ -211,6 +235,9 @@ export default function ConteoDeCervezaPage() {
   const isCounted = (id: string) =>
     Object.prototype.hasOwnProperty.call(unitCounts, id) ||
     Object.prototype.hasOwnProperty.call(boxCounts, id);
+
+  const isZeroCount = (id: string) =>
+    (unitCounts[id] ?? 0) === 0 && (boxCounts[id] ?? 0) === 0;
 
   const missingCount = cervezaItems.filter((item) => !isCounted(item._id)).length;
 
@@ -397,9 +424,6 @@ export default function ConteoDeCervezaPage() {
       return;
     }
     if (key === "+") {
-      if (activeField !== "units") {
-        return;
-      }
       if (!currentValue || currentValue.endsWith("+")) {
         return;
       }
@@ -419,7 +443,7 @@ export default function ConteoDeCervezaPage() {
       <div className="pointer-events-none absolute -right-16 bottom-0 h-96 w-96 rounded-full bg-[#0f3d36] opacity-30 blur-3xl" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.07),_transparent_55%)]" />
 
-      <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-10 sm:px-6 sm:py-12">
+      <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pt-10 pb-28 sm:px-6 sm:py-12">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
@@ -621,7 +645,7 @@ export default function ConteoDeCervezaPage() {
                     ? `Articulo ${currentIndex + 1} de ${cervezaItems.length}`
                     : "Sin articulos"}
                 </p>
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <div className="hidden sm:flex sm:flex-wrap sm:items-center sm:gap-2">
                   <button
                     className="w-full rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200 hover:border-[#b45309] disabled:opacity-60 sm:w-auto sm:text-sm"
                     type="button"
@@ -725,28 +749,32 @@ export default function ConteoDeCervezaPage() {
                         Cajas contadas
                         <input
                           className="w-full rounded-xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-base text-zinc-100 outline-none focus:border-[#b45309] disabled:opacity-60"
-                          type="number"
-                          min="0"
-                          step="1"
+                          type="text"
+                          inputMode={isMobile ? "none" : "numeric"}
                           value={cajasInput}
                           onChange={(event) =>
                             updateBoxCount(currentItem._id, event.target.value)
                           }
                           onFocus={() => setActiveField("boxes")}
+                          onClick={() => setActiveField("boxes")}
                           disabled={!porCaja}
+                          placeholder="Ej. 50+58+25"
+                          readOnly={isMobile}
                         />
                       </label>
                       <label className="space-y-1 text-xs text-zinc-400">
                         Piezas contadas
                         <input
                           className="w-full rounded-xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-base text-zinc-100 outline-none focus:border-[#b45309]"
-                          inputMode="numeric"
+                          inputMode={isMobile ? "none" : "numeric"}
                           placeholder="Ej. 52+58+25"
                           value={unidadesInput}
                           onChange={(event) =>
                             updateUnitCount(currentItem._id, event.target.value)
                           }
                           onFocus={() => setActiveField("units")}
+                          onClick={() => setActiveField("units")}
+                          readOnly={isMobile}
                         />
                       </label>
                       <div className="rounded-xl border border-white/10 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-300">
@@ -783,7 +811,7 @@ export default function ConteoDeCervezaPage() {
                           className="rounded-2xl border border-white/10 bg-[var(--panel)] py-3 text-base font-semibold text-zinc-100 active:scale-[0.98] disabled:opacity-50"
                           type="button"
                           onClick={() => handleKeypadInput("+")}
-                          disabled={activeField !== "units"}
+                          disabled={false}
                         >
                           +
                         </button>
@@ -815,6 +843,43 @@ export default function ConteoDeCervezaPage() {
                   </div>
                 );
               })() : null}
+
+              <div className="sm:hidden fixed bottom-4 left-0 right-0 z-40 px-4">
+                <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[var(--panel-90)] p-3 shadow-[0_20px_50px_-40px_rgba(0,0,0,0.6)] backdrop-blur">
+                  <button
+                    className="flex-1 rounded-full border border-white/10 bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-zinc-200 disabled:opacity-60"
+                    type="button"
+                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                    disabled={currentIndex === 0}
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    className="flex-1 rounded-full border border-white/10 bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-zinc-200 disabled:opacity-60"
+                    type="button"
+                    onClick={() => {
+                      if (isMobile && currentItem && isZeroCount(currentItem._id)) {
+                        markNonexistent();
+                        return;
+                      }
+                      setCurrentIndex((prev) =>
+                        Math.min(cervezaItems.length - 1, prev + 1)
+                      );
+                    }}
+                    disabled={currentIndex >= cervezaItems.length - 1}
+                  >
+                    Siguiente
+                  </button>
+                  <button
+                    className="flex-1 rounded-full bg-[#0f3d36] px-3 py-2 text-xs font-semibold text-white disabled:opacity-70"
+                    type="button"
+                    onClick={finalizeCount}
+                    disabled={!currentItem}
+                  >
+                    Finalizar
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </section>

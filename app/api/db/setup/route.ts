@@ -16,6 +16,12 @@ const DEFAULT_TOOLS = [
     visibleToUser: true,
   },
   {
+    key: "conteos-selectivos",
+    label: "Conteos selectivos",
+    description: "Cuenta productos especificos.",
+    visibleToUser: true,
+  },
+  {
     key: "cortes",
     label: "Cortes",
     description: "Cortes de caja y reportes.",
@@ -68,6 +74,13 @@ export async function POST() {
     await db.createCollection("beer_counts");
   }
 
+  const selectiveCountsExisting = await db
+    .listCollections({ name: "selective_counts" })
+    .toArray();
+  if (selectiveCountsExisting.length === 0) {
+    await db.createCollection("selective_counts");
+  }
+
   const changeRequestsExisting = await db
     .listCollections({ name: "change_requests" })
     .toArray();
@@ -110,6 +123,8 @@ export async function POST() {
   await db.collection("beer_counts").createIndex({ createdAt: -1 });
   await db.collection("beer_counts").createIndex({ usernameHash: 1 });
   await db.collection("beer_counts").createIndex({ ticketFolioHash: 1 });
+  await db.collection("selective_counts").createIndex({ createdAt: -1 });
+  await db.collection("selective_counts").createIndex({ usernameHash: 1 });
   await db.collection("change_requests").createIndex({ createdAt: -1 });
   await db.collection("change_requests").createIndex({ usernameHash: 1 });
   await db.collection("change_requests").createIndex({ status: 1 });

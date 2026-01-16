@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
   const caja =
     typeof body?.caja === "string" ? body.caja.trim() : "";
   const corteTeorico = Number(body?.corteTeorico);
+  const corteTeoricoCaja1 = Number(body?.corteTeoricoCaja1);
+  const corteTeoricoCaja2 = Number(body?.corteTeoricoCaja2);
   const corteReal = Number(body?.corteReal);
   const diferencia = Number(body?.diferencia);
   const depositado = Number(body?.depositado);
@@ -34,16 +36,29 @@ export async function POST(request: NextRequest) {
   const fondoCantidad =
     body?.fondoCantidad !== undefined ? Number(body.fondoCantidad) : undefined;
 
-  if (Number.isNaN(corteTeorico) || Number.isNaN(corteReal)) {
+  if (!caja) {
     return NextResponse.json(
-      { message: "Corte teorico y corte real son requeridos." },
+      { message: "La caja es requerida." },
       { status: 400 }
     );
   }
 
-  if (!caja) {
+  const isMixta = caja === "Caja mixta";
+  const hasCaja1 = !Number.isNaN(corteTeoricoCaja1);
+  const hasCaja2 = !Number.isNaN(corteTeoricoCaja2);
+  const corteTeoricoFinal = isMixta
+    ? hasCaja1 && hasCaja2
+      ? corteTeoricoCaja1 + corteTeoricoCaja2
+      : NaN
+    : corteTeorico;
+
+  if (Number.isNaN(corteTeoricoFinal) || Number.isNaN(corteReal)) {
     return NextResponse.json(
-      { message: "La caja es requerida." },
+      {
+        message: isMixta
+          ? "Corte teorico de caja 1 y caja 2 son requeridos."
+          : "Corte teorico y corte real son requeridos.",
+      },
       { status: 400 }
     );
   }
@@ -76,7 +91,7 @@ export async function POST(request: NextRequest) {
 
   const db = await getDb();
   const diferenciaFinal = Number.isNaN(diferencia)
-    ? corteReal - corteTeorico
+    ? corteReal - corteTeoricoFinal
     : diferencia;
   const picoFinal = Number.isNaN(pico) ? corteReal - depositado : pico;
 
@@ -84,7 +99,9 @@ export async function POST(request: NextRequest) {
     username: encryptString(username),
     usernameHash: hashForSearch(username),
     caja: encryptString(caja),
-    corteTeorico: encryptNumber(corteTeorico),
+    corteTeorico: encryptNumber(corteTeoricoFinal),
+    corteTeoricoCaja1: hasCaja1 ? encryptNumber(corteTeoricoCaja1) : undefined,
+    corteTeoricoCaja2: hasCaja2 ? encryptNumber(corteTeoricoCaja2) : undefined,
     corteReal: encryptNumber(corteReal),
     diferencia: encryptNumber(diferenciaFinal),
     depositado: encryptNumber(depositado),
@@ -127,10 +144,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "No autorizado." }, { status: 403 });
   }
 
+  const baseQuery = { isAdjustment: { $ne: true } };
   const query =
     wantsAll && canViewAll
-      ? {}
-      : { usernameHash: hashForSearch(username), isAdjustment: { $ne: true } };
+      ? baseQuery
+      : { ...baseQuery, usernameHash: hashForSearch(username) };
 
   const cortes = await db
     .collection("cash_cuts")
@@ -164,6 +182,8 @@ export async function GET(request: NextRequest) {
     username: decryptString(corte.username),
     caja: decryptString(corte.caja),
     corteTeorico: decryptNumber(corte.corteTeorico) ?? 0,
+    corteTeoricoCaja1: decryptNumber(corte.corteTeoricoCaja1),
+    corteTeoricoCaja2: decryptNumber(corte.corteTeoricoCaja2),
     corteReal: decryptNumber(corte.corteReal) ?? 0,
     diferencia: decryptNumber(corte.diferencia) ?? 0,
     depositado: decryptNumber(corte.depositado) ?? 0,
@@ -186,6 +206,8 @@ export async function GET(request: NextRequest) {
       (ajuste) => ({
         _id: ajuste._id.toString(),
         corteTeorico: decryptNumber(ajuste.corteTeorico) ?? 0,
+        corteTeoricoCaja1: decryptNumber(ajuste.corteTeoricoCaja1),
+        corteTeoricoCaja2: decryptNumber(ajuste.corteTeoricoCaja2),
         corteReal: decryptNumber(ajuste.corteReal) ?? 0,
         diferencia: decryptNumber(ajuste.diferencia) ?? 0,
         depositado: decryptNumber(ajuste.depositado) ?? 0,

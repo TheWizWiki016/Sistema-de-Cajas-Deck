@@ -80,6 +80,7 @@ const ADMIN_CAJAS = ["Caja 1", "Caja 2"];
 const TOOL_ROUTES: Record<string, string> = {
   "imprimir-precios": "/tools/imprimir-precios",
   conteos: "/tools/conteos",
+  "conteos-selectivos": "/tools/conteos-selectivos",
   cortes: "/tools/cortes",
   articulos: "/tools/articulos",
   familias: "/tools/familias",
@@ -1918,8 +1919,29 @@ export default function DashboardPage() {
 
         {role === "admin" ? (
           <section className="mt-4">
-            <div className="rounded-3xl border border-white/10 bg-[var(--panel-90)] p-6 shadow-[0_30px_60px_-40px_rgba(124,17,39,0.45)]">
-              {renderCortesBody(true)}
+            <div className={`mt-3 grid gap-3 ${gridClass}`}>
+              {userVisibleTools.length === 0 ? (
+                <p className="text-sm text-zinc-400">No hay herramientas activas.</p>
+              ) : null}
+              {userVisibleTools.map((tool) => {
+                const href = TOOL_ROUTES[tool.key] ?? `/tools/${tool.key}`;
+                const Component = href ? "a" : "button";
+                return (
+                  <Component
+                    key={tool._id}
+                    className="flex flex-col items-start gap-2 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#7c1127]"
+                    type={href ? undefined : "button"}
+                    href={href}
+                  >
+                    <span className="text-sm font-semibold text-zinc-100">
+                      {tool.label}
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      {tool.description || "Sin descripcion"}
+                    </span>
+                  </Component>
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -1960,5 +1982,4 @@ export default function DashboardPage() {
     </div>
   );
 }
-
 

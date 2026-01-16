@@ -9,10 +9,17 @@ type Task = {
   done: boolean;
 };
 
+type RoleResponse = {
+  role: "super-root" | "admin" | "usuario" | null;
+};
+
 type Corte = {
   _id: string;
+  username?: string;
   caja: string;
   corteTeorico: number;
+  corteTeoricoCaja1?: number;
+  corteTeoricoCaja2?: number;
   corteReal: number;
   depositado: number;
   pico: number;
@@ -23,6 +30,8 @@ type Corte = {
   ajustes?: {
     _id: string;
     corteTeorico: number;
+    corteTeoricoCaja1?: number;
+    corteTeoricoCaja2?: number;
     corteReal: number;
     diferencia: number;
     depositado: number;
@@ -36,7 +45,27 @@ type Corte = {
   createdAt: string;
 };
 
-const CAJAS = ["Caja 1", "Caja 2"];
+type AjusteForm = {
+  caja: string;
+  corteTeorico: string;
+  corteTeoricoCaja1: string;
+  corteTeoricoCaja2: string;
+  corteReal: string;
+  depositado: string;
+  fondoValidado: "si" | "no";
+  fondoCantidad: string;
+};
+
+const CAJAS = ["Caja 1", "Caja 2", "Caja mixta"];
+
+function getCookie(name: string) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return decodeURIComponent(parts.pop()?.split(";").shift() ?? "");
+  }
+  return "";
+}
 
 const parseNumberInput = (value: string) => {
   const normalized = value.replace(/[^\d.,-]/g, "").trim();
@@ -52,7 +81,13 @@ const parseNumberInput = (value: string) => {
 };
 
 export default function CortesPage() {
+  const [username, setUsername] = useState("");
+  const [role, setRole] = useState<"super-root" | "admin" | "usuario" | null>(
+    null
+  );
   const [corteTeorico, setCorteTeorico] = useState("");
+  const [corteTeoricoCaja1, setCorteTeoricoCaja1] = useState("");
+  const [corteTeoricoCaja2, setCorteTeoricoCaja2] = useState("");
   const [corteReal, setCorteReal] = useState("");
   const [depositado, setDepositado] = useState("");
   const [caja, setCaja] = useState("");
@@ -63,11 +98,29 @@ export default function CortesPage() {
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<Corte[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [editingCorteId, setEditingCorteId] = useState<string | null>(null);
+  const [ajusteNote, setAjusteNote] = useState("");
+  const [ajusteForm, setAjusteForm] = useState<AjusteForm>({
+    caja: "",
+    corteTeorico: "",
+    corteTeoricoCaja1: "",
+    corteTeoricoCaja2: "",
+    corteReal: "",
+    depositado: "",
+    fondoValidado: "no",
+    fondoCantidad: "",
+  });
+  const [savingAjuste, setSavingAjuste] = useState(false);
+  const [filterUser, setFilterUser] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+
+  const isAdmin = role === "admin" || role === "super-root";
 
   const loadHistory = async () => {
     setLoadingHistory(true);
     try {
-      const response = await fetch("/api/cortes");
+      const response = await fetch(`/api/cortes${isAdmin ? "?all=1" : ""}`);
       const data = (await response.json()) as { cortes?: Corte[] };
       if (response.ok) {
         setHistory(data.cortes ?? []);
@@ -78,8 +131,22 @@ export default function CortesPage() {
   };
 
   useEffect(() => {
-    loadHistory();
+    setUsername(getCookie("deck_user"));
   }, []);
+
+  useEffect(() => {
+    if (!username) {
+      return;
+    }
+    fetch(`/api/users/role?username=${encodeURIComponent(username)}`)
+      .then((response) => response.json() as Promise<RoleResponse>)
+      .then((data) => setRole(data.role ?? null))
+      .catch(() => setRole(null));
+  }, [username]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [role]);
 
   const currencyFormatter = useMemo(
     () =>
@@ -104,8 +171,21 @@ export default function CortesPage() {
     return parsed === null ? "" : numberFormatter.format(parsed);
   };
 
+  const isCajaMixta = caja === "Caja mixta";
+  const corteTeoricoValue = useMemo(() => {
+    if (isCajaMixta) {
+      const caja1 = parseNumberInput(corteTeoricoCaja1);
+      const caja2 = parseNumberInput(corteTeoricoCaja2);
+      if (caja1 === null || caja2 === null) {
+        return null;
+      }
+      return caja1 + caja2;
+    }
+    return parseNumberInput(corteTeorico);
+  }, [isCajaMixta, corteTeorico, corteTeoricoCaja1, corteTeoricoCaja2]);
+
   const diferencia = useMemo(() => {
-    const teorico = parseNumberInput(corteTeorico);
+    const teorico = corteTeoricoValue;
     const real = parseNumberInput(corteReal);
     if (teorico === null || real === null) {
       return null;
@@ -136,6 +216,42 @@ export default function CortesPage() {
       ? "text-emerald-400"
       : "text-zinc-100";
 
+  const availableUsers = useMemo(() => {
+    if (!isAdmin) {
+      return [];
+    }
+    const names = history
+      .map((item) => item.username)
+      .filter((value): value is string => Boolean(value));
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  }, [history, isAdmin]);
+
+  const filteredHistory = useMemo(() => {
+    if (!isAdmin) {
+      return history;
+    }
+    const fromDate = filterFrom ? new Date(`${filterFrom}T00:00:00`) : null;
+    const toDate = filterTo ? new Date(`${filterTo}T23:59:59`) : null;
+    return history.filter((item) => {
+      if (filterUser && item.username !== filterUser) {
+        return false;
+      }
+      if (fromDate || toDate) {
+        const created = new Date(item.createdAt);
+        if (Number.isNaN(created.getTime())) {
+          return false;
+        }
+        if (fromDate && created < fromDate) {
+          return false;
+        }
+        if (toDate && created > toDate) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [history, isAdmin, filterUser, filterFrom, filterTo]);
+
   const addPendiente = () => {
     const text = nuevoPendiente.trim();
     if (!text) {
@@ -163,7 +279,13 @@ export default function CortesPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const corteTeoricoValue = parseNumberInput(corteTeorico);
+    const caja1Value = parseNumberInput(corteTeoricoCaja1);
+    const caja2Value = parseNumberInput(corteTeoricoCaja2);
+    const corteTeoricoValue = isCajaMixta
+      ? caja1Value === null || caja2Value === null
+        ? null
+        : caja1Value + caja2Value
+      : parseNumberInput(corteTeorico);
     const corteRealValue = parseNumberInput(corteReal);
     const depositadoValue = parseNumberInput(depositado);
     const fondoCantidadValue = parseNumberInput(fondoCantidad);
@@ -174,7 +296,11 @@ export default function CortesPage() {
     }
 
     if (corteTeoricoValue === null || corteRealValue === null) {
-      toast.error("Completa corte teorico y corte real.");
+      toast.error(
+        isCajaMixta
+          ? "Completa corte teorico caja 1, caja 2 y corte real."
+          : "Completa corte teorico y corte real."
+      );
       return;
     }
 
@@ -193,12 +319,16 @@ export default function CortesPage() {
       const response = await fetch("/api/cortes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          caja,
-          corteTeorico: corteTeoricoValue,
-          corteReal: corteRealValue,
-          diferencia: diferencia ?? 0,
-          depositado: depositadoValue,
+          body: JSON.stringify({
+            caja,
+            corteTeorico: corteTeoricoValue,
+            corteTeoricoCaja1:
+              isCajaMixta && caja1Value !== null ? caja1Value : undefined,
+            corteTeoricoCaja2:
+              isCajaMixta && caja2Value !== null ? caja2Value : undefined,
+            corteReal: corteRealValue,
+            diferencia: diferencia ?? 0,
+            depositado: depositadoValue,
           pico: pico ?? 0,
           pendientes: pendientes.map((task) => ({
             text: task.text,
@@ -219,6 +349,8 @@ export default function CortesPage() {
       toast.success("Corte guardado correctamente.");
       setCaja("");
       setCorteTeorico("");
+      setCorteTeoricoCaja1("");
+      setCorteTeoricoCaja2("");
       setCorteReal("");
       setDepositado("");
       setFondoValidado("no");
@@ -230,6 +362,122 @@ export default function CortesPage() {
       toast.error("Error de red. Intenta de nuevo.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startAjuste = (corte: Corte) => {
+    setEditingCorteId(corte._id);
+    setAjusteNote("");
+    setAjusteForm({
+      caja: corte.caja ?? "",
+      corteTeorico: String(corte.corteTeorico ?? ""),
+      corteTeoricoCaja1:
+        corte.corteTeoricoCaja1 !== undefined
+          ? String(corte.corteTeoricoCaja1)
+          : "",
+      corteTeoricoCaja2:
+        corte.corteTeoricoCaja2 !== undefined
+          ? String(corte.corteTeoricoCaja2)
+          : "",
+      corteReal: String(corte.corteReal ?? ""),
+      depositado: String(corte.depositado ?? ""),
+      fondoValidado: corte.fondoValidado ? "si" : "no",
+      fondoCantidad:
+        corte.fondoCantidad !== undefined ? String(corte.fondoCantidad) : "",
+    });
+  };
+
+  const cancelAjuste = () => {
+    setEditingCorteId(null);
+    setAjusteNote("");
+    setAjusteForm({
+      caja: "",
+      corteTeorico: "",
+      corteTeoricoCaja1: "",
+      corteTeoricoCaja2: "",
+      corteReal: "",
+      depositado: "",
+      fondoValidado: "no",
+      fondoCantidad: "",
+    });
+  };
+
+  const saveAjuste = async () => {
+    if (!editingCorteId) {
+      return;
+    }
+    const isMixta = ajusteForm.caja === "Caja mixta";
+    const ajusteCaja1Value = parseNumberInput(ajusteForm.corteTeoricoCaja1);
+    const ajusteCaja2Value = parseNumberInput(ajusteForm.corteTeoricoCaja2);
+    const corteTeoricoValue = isMixta
+      ? ajusteCaja1Value === null || ajusteCaja2Value === null
+        ? null
+        : ajusteCaja1Value + ajusteCaja2Value
+      : parseNumberInput(ajusteForm.corteTeorico);
+    const corteRealValue = parseNumberInput(ajusteForm.corteReal);
+    const depositadoValue = parseNumberInput(ajusteForm.depositado);
+    const fondoCantidadValue = parseNumberInput(ajusteForm.fondoCantidad);
+
+    if (!ajusteForm.caja.trim()) {
+      toast.error("La caja es requerida.");
+      return;
+    }
+    if (corteTeoricoValue === null || corteRealValue === null) {
+      toast.error(
+        isMixta
+          ? "Completa corte teorico caja 1, caja 2 y corte real."
+          : "Completa corte teorico y corte real."
+      );
+      return;
+    }
+    if (depositadoValue === null) {
+      toast.error("Ingresa el monto depositado.");
+      return;
+    }
+    if (ajusteForm.fondoValidado === "si" && fondoCantidadValue === null) {
+      toast.error("Ingresa la cantidad del fondo validado.");
+      return;
+    }
+
+    setSavingAjuste(true);
+    try {
+      const diferenciaValue = corteRealValue - corteTeoricoValue;
+      const picoValue = corteRealValue - depositadoValue;
+      const response = await fetch("/api/cortes/ajustes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalId: editingCorteId,
+          caja: ajusteForm.caja,
+          corteTeorico: corteTeoricoValue,
+          corteTeoricoCaja1:
+            isMixta && ajusteCaja1Value !== null ? ajusteCaja1Value : undefined,
+          corteTeoricoCaja2:
+            isMixta && ajusteCaja2Value !== null ? ajusteCaja2Value : undefined,
+          corteReal: corteRealValue,
+          diferencia: diferenciaValue,
+          depositado: depositadoValue,
+          pico: picoValue,
+          fondoValidado: ajusteForm.fondoValidado === "si",
+          fondoCantidad:
+            ajusteForm.fondoValidado === "si"
+              ? fondoCantidadValue ?? 0
+              : undefined,
+          note: ajusteNote,
+        }),
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        toast.error(data.message ?? "No se pudo guardar el ajuste.");
+        return;
+      }
+      toast.success("Ajuste guardado.");
+      cancelAjuste();
+      loadHistory();
+    } catch (error) {
+      toast.error("Error de red al guardar el ajuste.");
+    } finally {
+      setSavingAjuste(false);
     }
   };
 
@@ -282,20 +530,75 @@ export default function CortesPage() {
                     ))}
                   </select>
                 </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-zinc-300">
-                    Corte teorico
-                  </span>
-                  <input
-                    className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-4 py-3 text-base text-zinc-100 outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
-                    type="text"
-                    inputMode="decimal"
-                    value={corteTeorico}
-                    onChange={(event) => setCorteTeorico(event.target.value)}
-                    onBlur={() => setCorteTeorico(formatNumberInput(corteTeorico))}
-                    placeholder="0.00"
-                  />
-                </label>
+                {isCajaMixta ? (
+                  <div className="space-y-3 md:col-span-2">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-zinc-300">
+                          Corte teorico caja 1
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-4 py-3 text-base text-zinc-100 outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
+                          type="text"
+                          inputMode="decimal"
+                          value={corteTeoricoCaja1}
+                          onChange={(event) =>
+                            setCorteTeoricoCaja1(event.target.value)
+                          }
+                          onBlur={() =>
+                            setCorteTeoricoCaja1(
+                              formatNumberInput(corteTeoricoCaja1)
+                            )
+                          }
+                          placeholder="0.00"
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-zinc-300">
+                          Corte teorico caja 2
+                        </span>
+                        <input
+                          className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-4 py-3 text-base text-zinc-100 outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
+                          type="text"
+                          inputMode="decimal"
+                          value={corteTeoricoCaja2}
+                          onChange={(event) =>
+                            setCorteTeoricoCaja2(event.target.value)
+                          }
+                          onBlur={() =>
+                            setCorteTeoricoCaja2(
+                              formatNumberInput(corteTeoricoCaja2)
+                            )
+                          }
+                          placeholder="0.00"
+                        />
+                      </label>
+                    </div>
+                    <p className="text-xs text-zinc-400">
+                      Corte teorico mixto:{" "}
+                      {corteTeoricoValue === null
+                        ? "--"
+                        : formatCurrency(corteTeoricoValue)}
+                    </p>
+                  </div>
+                ) : (
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-zinc-300">
+                      Corte teorico
+                    </span>
+                    <input
+                      className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-4 py-3 text-base text-zinc-100 outline-none transition focus:border-[#7c1127] focus:ring-2 focus:ring-[#7c1127]/30"
+                      type="text"
+                      inputMode="decimal"
+                      value={corteTeorico}
+                      onChange={(event) => setCorteTeorico(event.target.value)}
+                      onBlur={() =>
+                        setCorteTeorico(formatNumberInput(corteTeorico))
+                      }
+                      placeholder="0.00"
+                    />
+                  </label>
+                )}
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-zinc-300">
@@ -474,6 +777,11 @@ export default function CortesPage() {
           >
             {saving ? "Guardando..." : "Guardar corte"}
           </button>
+          {isCajaMixta ? (
+            <p className="text-xs text-zinc-400">
+              Caja mixta seleccionada: Corte teorico caja 1 + caja 2.
+            </p>
+          ) : null}
         </form>
 
         <section className="mt-10 rounded-3xl border border-white/10 bg-[var(--panel-90)] p-8 shadow-[0_30px_60px_-40px_rgba(15,61,54,0.6)]">
@@ -493,16 +801,67 @@ export default function CortesPage() {
             </button>
           </div>
 
+          {isAdmin ? (
+            <div className="mt-6 grid gap-3 rounded-2xl border border-white/10 bg-[var(--surface)] p-4 sm:grid-cols-3">
+              <label className="space-y-1 text-xs text-zinc-400">
+                Usuario
+                <select
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  value={filterUser}
+                  onChange={(event) => setFilterUser(event.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {availableUsers.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-zinc-400">
+                Desde
+                <input
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  type="date"
+                  value={filterFrom}
+                  onChange={(event) => setFilterFrom(event.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-xs text-zinc-400">
+                Hasta
+                <input
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                  type="date"
+                  value={filterTo}
+                  onChange={(event) => setFilterTo(event.target.value)}
+                />
+              </label>
+              <div className="flex items-end">
+                <button
+                  className="w-full rounded-2xl border border-white/10 bg-[var(--panel)] px-3 py-2 text-sm font-semibold text-zinc-100 hover:border-[#7c1127]"
+                  type="button"
+                  onClick={() => {
+                    setFilterUser("");
+                    setFilterFrom("");
+                    setFilterTo("");
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
             {loadingHistory ? (
               <p className="text-sm text-zinc-400">Cargando historico...</p>
             ) : null}
-            {!loadingHistory && history.length === 0 ? (
+            {!loadingHistory && filteredHistory.length === 0 ? (
               <p className="text-sm text-zinc-400">
                 Aun no hay cortes registrados.
               </p>
             ) : null}
-            {history.map((corte) => (
+            {filteredHistory.map((corte) => (
               <div
                 key={corte._id}
                 className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4"
@@ -512,6 +871,11 @@ export default function CortesPage() {
                     <p className="text-sm font-semibold text-zinc-100">
                       {new Date(corte.createdAt).toLocaleString()}
                     </p>
+                    {isAdmin && corte.username ? (
+                      <p className="text-xs text-zinc-500">
+                        Usuario: {corte.username}
+                      </p>
+                    ) : null}
                     <p className="text-xs text-zinc-400">
                       Fondo validado: {corte.fondoValidado ? "Si" : "No"}
                       {corte.fondoValidado && corte.fondoCantidad !== undefined
@@ -529,7 +893,16 @@ export default function CortesPage() {
                 </div>
                 <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
                   <div>Caja: {corte.caja || "Sin caja"}</div>
-                  <div>Corte teorico: {formatCurrency(corte.corteTeorico)}</div>
+                  {corte.corteTeoricoCaja1 !== undefined ||
+                  corte.corteTeoricoCaja2 !== undefined ? (
+                    <div>
+                      Corte teorico mixto: {formatCurrency(corte.corteTeorico)}
+                    </div>
+                  ) : (
+                    <div>
+                      Corte teorico: {formatCurrency(corte.corteTeorico)}
+                    </div>
+                  )}
                   <div>Corte real: {formatCurrency(corte.corteReal)}</div>
                   <div>Depositado: {formatCurrency(corte.depositado)}</div>
                   <div className={valueTone(corte.pico)}>
@@ -570,6 +943,23 @@ export default function CortesPage() {
                     </div>
                   </div>
                 ) : null}
+                {corte.corteTeoricoCaja1 !== undefined ||
+                corte.corteTeoricoCaja2 !== undefined ? (
+                  <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
+                    <div>
+                      Corte teorico caja 1:{" "}
+                      {corte.corteTeoricoCaja1 !== undefined
+                        ? formatCurrency(corte.corteTeoricoCaja1)
+                        : "--"}
+                    </div>
+                    <div>
+                      Corte teorico caja 2:{" "}
+                      {corte.corteTeoricoCaja2 !== undefined
+                        ? formatCurrency(corte.corteTeoricoCaja2)
+                        : "--"}
+                    </div>
+                  </div>
+                ) : null}
                 {corte.ajustes?.length ? (
                   <div className="mt-4 space-y-2 text-sm text-zinc-300">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
@@ -601,7 +991,15 @@ export default function CortesPage() {
                             </div>
                             <div>Pico: {formatSignedCurrency(ajuste.pico)}</div>
                             <div>
-                              Corte teorico: {formatCurrency(ajuste.corteTeorico)}
+                              {ajuste.corteTeoricoCaja1 !== undefined ||
+                              ajuste.corteTeoricoCaja2 !== undefined ? (
+                                <>
+                                  Corte teorico mixto:{" "}
+                                  {formatCurrency(ajuste.corteTeorico)}
+                                </>
+                              ) : (
+                                <>Corte teorico: {formatCurrency(ajuste.corteTeorico)}</>
+                              )}
                             </div>
                             <div>
                               Corte real: {formatCurrency(ajuste.corteReal)}
@@ -615,6 +1013,23 @@ export default function CortesPage() {
                                 : "No validado"}
                             </div>
                           </div>
+                          {ajuste.corteTeoricoCaja1 !== undefined ||
+                          ajuste.corteTeoricoCaja2 !== undefined ? (
+                            <div className="mt-2 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
+                              <div>
+                                Corte teorico caja 1:{" "}
+                                {ajuste.corteTeoricoCaja1 !== undefined
+                                  ? formatCurrency(ajuste.corteTeoricoCaja1)
+                                  : "--"}
+                              </div>
+                              <div>
+                                Corte teorico caja 2:{" "}
+                                {ajuste.corteTeoricoCaja2 !== undefined
+                                  ? formatCurrency(ajuste.corteTeoricoCaja2)
+                                  : "--"}
+                              </div>
+                            </div>
+                          ) : null}
                           {ajuste.adjustmentNote ? (
                             <p className="mt-2 text-xs text-zinc-400">
                               Nota: {ajuste.adjustmentNote}
@@ -623,6 +1038,266 @@ export default function CortesPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                ) : null}
+                {isAdmin ? (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-[var(--panel)] p-4">
+                    {editingCorteId === corte._id ? (
+                      <div className="space-y-3 text-sm text-zinc-300">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="space-y-1">
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                              Caja
+                            </span>
+                            <select
+                              className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                              value={ajusteForm.caja}
+                              onChange={(event) =>
+                                setAjusteForm((prev) => ({
+                                  ...prev,
+                                  caja: event.target.value,
+                                }))
+                              }
+                            >
+                              <option value="">Selecciona una caja</option>
+                              {CAJAS.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {ajusteForm.caja === "Caja mixta" ? (
+                            <div className="space-y-2 sm:col-span-2">
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <label className="space-y-1">
+                                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                                    Corte teorico caja 1
+                                  </span>
+                                  <input
+                                    className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                                    value={ajusteForm.corteTeoricoCaja1}
+                                    onChange={(event) =>
+                                      setAjusteForm((prev) => ({
+                                        ...prev,
+                                        corteTeoricoCaja1: event.target.value,
+                                      }))
+                                    }
+                                    onBlur={() =>
+                                      setAjusteForm((prev) => ({
+                                        ...prev,
+                                        corteTeoricoCaja1: formatNumberInput(
+                                          prev.corteTeoricoCaja1
+                                        ),
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label className="space-y-1">
+                                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                                    Corte teorico caja 2
+                                  </span>
+                                  <input
+                                    className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                                    value={ajusteForm.corteTeoricoCaja2}
+                                    onChange={(event) =>
+                                      setAjusteForm((prev) => ({
+                                        ...prev,
+                                        corteTeoricoCaja2: event.target.value,
+                                      }))
+                                    }
+                                    onBlur={() =>
+                                      setAjusteForm((prev) => ({
+                                        ...prev,
+                                        corteTeoricoCaja2: formatNumberInput(
+                                          prev.corteTeoricoCaja2
+                                        ),
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              </div>
+                              <p className="text-xs text-zinc-500">
+                                Corte teorico mixto:{" "}
+                                {(() => {
+                                  const caja1 = parseNumberInput(
+                                    ajusteForm.corteTeoricoCaja1
+                                  );
+                                  const caja2 = parseNumberInput(
+                                    ajusteForm.corteTeoricoCaja2
+                                  );
+                                  return caja1 === null || caja2 === null
+                                    ? "--"
+                                    : formatCurrency(caja1 + caja2);
+                                })()}
+                              </p>
+                            </div>
+                          ) : (
+                            <label className="space-y-1">
+                              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                                Corte teorico
+                              </span>
+                              <input
+                                className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                                value={ajusteForm.corteTeorico}
+                                onChange={(event) =>
+                                  setAjusteForm((prev) => ({
+                                    ...prev,
+                                    corteTeorico: event.target.value,
+                                  }))
+                                }
+                                onBlur={() =>
+                                  setAjusteForm((prev) => ({
+                                    ...prev,
+                                    corteTeorico: formatNumberInput(
+                                      prev.corteTeorico
+                                    ),
+                                  }))
+                                }
+                              />
+                            </label>
+                          )}
+                          <label className="space-y-1">
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                              Corte real
+                            </span>
+                            <input
+                              className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                              value={ajusteForm.corteReal}
+                              onChange={(event) =>
+                                setAjusteForm((prev) => ({
+                                  ...prev,
+                                  corteReal: event.target.value,
+                                }))
+                              }
+                              onBlur={() =>
+                                setAjusteForm((prev) => ({
+                                  ...prev,
+                                  corteReal: formatNumberInput(prev.corteReal),
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                              Depositado
+                            </span>
+                            <input
+                              className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                              value={ajusteForm.depositado}
+                              onChange={(event) =>
+                                setAjusteForm((prev) => ({
+                                  ...prev,
+                                  depositado: event.target.value,
+                                }))
+                              }
+                              onBlur={() =>
+                                setAjusteForm((prev) => ({
+                                  ...prev,
+                                  depositado: formatNumberInput(
+                                    prev.depositado
+                                  ),
+                                }))
+                              }
+                            />
+                          </label>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                            Fondo validado
+                          </p>
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400">
+                            <label className="flex items-center gap-2">
+                              <input
+                                className="accent-[#7c1127]"
+                                type="radio"
+                                name={`ajuste-fondo-${corte._id}`}
+                                checked={ajusteForm.fondoValidado === "si"}
+                                onChange={() =>
+                                  setAjusteForm((prev) => ({
+                                    ...prev,
+                                    fondoValidado: "si",
+                                  }))
+                                }
+                              />
+                              Si
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                className="accent-[#7c1127]"
+                                type="radio"
+                                name={`ajuste-fondo-${corte._id}`}
+                                checked={ajusteForm.fondoValidado === "no"}
+                                onChange={() =>
+                                  setAjusteForm((prev) => ({
+                                    ...prev,
+                                    fondoValidado: "no",
+                                  }))
+                                }
+                              />
+                              No
+                            </label>
+                          </div>
+                          {ajusteForm.fondoValidado === "si" ? (
+                            <input
+                              className="w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                              value={ajusteForm.fondoCantidad}
+                              onChange={(event) =>
+                                setAjusteForm((prev) => ({
+                                  ...prev,
+                                  fondoCantidad: event.target.value,
+                                }))
+                              }
+                              onBlur={() =>
+                                setAjusteForm((prev) => ({
+                                  ...prev,
+                                  fondoCantidad: formatNumberInput(
+                                    prev.fondoCantidad
+                                  ),
+                                }))
+                              }
+                              placeholder="Cantidad del fondo"
+                            />
+                          ) : null}
+                        </div>
+                        <label className="space-y-1">
+                          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                            Nota
+                          </span>
+                          <textarea
+                            className="min-h-[70px] w-full rounded-2xl border border-white/10 bg-[#0c0c11] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-[#7c1127]"
+                            value={ajusteNote}
+                            onChange={(event) => setAjusteNote(event.target.value)}
+                            placeholder="Motivo del ajuste"
+                          />
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            className="rounded-full bg-[#7c1127] px-4 py-2 text-xs font-semibold text-white hover:bg-[#5c0b1c] disabled:opacity-70"
+                            type="button"
+                            onClick={saveAjuste}
+                            disabled={savingAjuste}
+                          >
+                            {savingAjuste ? "Guardando..." : "Guardar ajuste"}
+                          </button>
+                          <button
+                            className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-200"
+                            type="button"
+                            onClick={cancelAjuste}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="rounded-full border border-white/10 bg-[var(--surface)] px-4 py-2 text-xs font-semibold text-zinc-200 hover:border-[#7c1127]"
+                        type="button"
+                        onClick={() => startAjuste(corte)}
+                      >
+                        Ajustar corte
+                      </button>
+                    )}
                   </div>
                 ) : null}
               </div>

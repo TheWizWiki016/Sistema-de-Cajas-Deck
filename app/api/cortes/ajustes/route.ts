@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
 
   const caja = typeof body?.caja === "string" ? body.caja.trim() : "";
   const corteTeorico = Number(body?.corteTeorico);
+  const corteTeoricoCaja1 = Number(body?.corteTeoricoCaja1);
+  const corteTeoricoCaja2 = Number(body?.corteTeoricoCaja2);
   const corteReal = Number(body?.corteReal);
   const diferencia = Number(body?.diferencia);
   const depositado = Number(body?.depositado);
@@ -67,9 +69,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (Number.isNaN(corteTeorico) || Number.isNaN(corteReal)) {
+  const isMixta = caja === "Caja mixta";
+  const hasCaja1 = !Number.isNaN(corteTeoricoCaja1);
+  const hasCaja2 = !Number.isNaN(corteTeoricoCaja2);
+  const corteTeoricoFinal = isMixta
+    ? hasCaja1 && hasCaja2
+      ? corteTeoricoCaja1 + corteTeoricoCaja2
+      : NaN
+    : corteTeorico;
+
+  if (Number.isNaN(corteTeoricoFinal) || Number.isNaN(corteReal)) {
     return NextResponse.json(
-      { message: "Corte teorico y corte real son requeridos." },
+      {
+        message: isMixta
+          ? "Corte teorico de caja 1 y caja 2 son requeridos."
+          : "Corte teorico y corte real son requeridos.",
+      },
       { status: 400 }
     );
   }
@@ -104,7 +119,7 @@ export async function POST(request: NextRequest) {
   }
 
   const diferenciaFinal = Number.isNaN(diferencia)
-    ? corteReal - corteTeorico
+    ? corteReal - corteTeoricoFinal
     : diferencia;
   const picoFinal = Number.isNaN(pico) ? corteReal - depositado : pico;
 
@@ -112,7 +127,9 @@ export async function POST(request: NextRequest) {
     username: original.username,
     usernameHash: original.usernameHash,
     caja: encryptString(caja),
-    corteTeorico: encryptNumber(corteTeorico),
+    corteTeorico: encryptNumber(corteTeoricoFinal),
+    corteTeoricoCaja1: hasCaja1 ? encryptNumber(corteTeoricoCaja1) : undefined,
+    corteTeoricoCaja2: hasCaja2 ? encryptNumber(corteTeoricoCaja2) : undefined,
     corteReal: encryptNumber(corteReal),
     diferencia: encryptNumber(diferenciaFinal),
     depositado: encryptNumber(depositado),

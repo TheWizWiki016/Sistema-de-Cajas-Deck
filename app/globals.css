@@ -63,6 +63,20 @@ body {
   animation: login-line 12s linear infinite;
 }
 
+@layer utilities {
+  .rounded-2xl {
+    border-radius: 0 !important;
+    border-top-left-radius: 1rem !important;
+    border-bottom-right-radius: 1rem !important;
+  }
+
+  .rounded-3xl {
+    border-radius: 0 !important;
+    border-top-left-radius: 1.5rem !important;
+    border-bottom-right-radius: 1.5rem !important;
+  }
+}
+
 @keyframes login-fade {
   from {
     opacity: 0;
